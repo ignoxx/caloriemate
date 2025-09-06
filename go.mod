@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/asg017/sqlite-vec-go-bindings v0.1.6
+	github.com/joho/godotenv v1.5.1
 	github.com/pocketbase/pocketbase v0.29.3
 )
 
