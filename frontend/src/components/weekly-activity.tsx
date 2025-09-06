@@ -117,7 +117,6 @@ export function WeeklyActivity({ mealHistory, userGoals }: WeeklyActivityProps) 
     const labels: { month: string; weekIndex: number; width: number }[] = []
     let currentMonth = -1
     let currentYear = -1
-    const weekCount = 0
 
     weeks.forEach((week, weekIndex) => {
       const firstDay = week[0]
@@ -185,7 +184,6 @@ export function WeeklyActivity({ mealHistory, userGoals }: WeeklyActivityProps) 
 
   // Calculate some stats
   const totalDaysWithData = days.filter((day) => day.hasData).length
-  const totalDays = days.length
   const currentStreak = (() => {
     let streak = 0
     for (let i = days.length - 1; i >= 0; i--) {

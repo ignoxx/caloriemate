@@ -61,7 +61,7 @@ export default function CalorieTracker() {
     }
 
     if (savedMeals) {
-      const meals = JSON.parse(savedMeals).map((meal: any) => ({
+      const meals = JSON.parse(savedMeals).map((meal: MealEntry) => ({
         ...meal,
         timestamp: new Date(meal.timestamp),
       }))

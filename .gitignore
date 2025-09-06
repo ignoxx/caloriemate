@@ -1,5 +1,6 @@
-pb_data/
 node_modules
+pb_data/
 .env
 caloriemate
+vec0.dylib*
 
