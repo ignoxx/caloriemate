@@ -30,8 +30,8 @@ func main() {
 	stage := os.Getenv("STAGE")
 
 	distDirFs := os.DirFS("./pb_public")
-	if stage == "prod" {
-		distDirFs, _ = fs.Sub(distDir, "build/client")
+	if true { //stage == "prod" {
+		distDirFs, _ = fs.Sub(distDir, "frontend/build")
 	}
 
 	// loosely check if it was executed using "go run"
