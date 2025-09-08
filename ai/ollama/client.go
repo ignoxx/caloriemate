@@ -11,7 +11,6 @@ import (
 const (
 	VISION_QWEN2_5vl_7b = "qwen2.5vl:7b"
 	TEXT_GEMMA3n_E4b    = "gemma3n:e4b"
-	EMBED_CLIP          = "clip"
 )
 
 type Client struct {
@@ -27,13 +26,13 @@ func New() *Client {
 	return &Client{client}
 }
 
-func (c *Client) AnalyzeImage(input io.Reader) string {
+func (c *Client) AnalyzeImage(input io.Reader) (string, error) {
 	// api.ChatRequest(api)
-	return ""
+	return "", nil
 }
 
-func (c *Client) EstimateNutritions(analyzerOutput, userContext string) types.Meal {
-	return types.Meal{}
+func (c *Client) EstimateNutritions(analyzerOutput, userContext string) (types.Meal, error) {
+	return types.Meal{}, nil
 }
 
 var _ ai.Analyzer = (*Client)(nil)

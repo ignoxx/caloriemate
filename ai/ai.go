@@ -7,10 +7,10 @@ import (
 )
 
 type Embedder interface {
-	GenerateEmbeddings(input io.Reader) []float32
+	GenerateEmbeddings(input io.Reader) ([]float32, error)
 }
 
 type Analyzer interface {
-	AnalyzeImage(image io.Reader) string
-	EstimateNutritions(analyzedImgOutput string, additionalInformation string) types.Meal
+	AnalyzeImage(image io.Reader) (string, error)
+	EstimateNutritions(analyzedImgOutput string, additionalInformation string) (types.Meal, error)
 }

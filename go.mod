@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/asg017/sqlite-vec-go-bindings v0.1.6
+	github.com/go-playground/locales v0.14.1
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/ollama/ollama v0.11.10

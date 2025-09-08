@@ -7,6 +7,9 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
+
+	"github.com/ignoxx/caloriemate/ai"
 )
 
 type CLIPClient struct {
@@ -21,20 +24,25 @@ type EmbeddingResponse struct {
 }
 
 func New() *CLIPClient {
+	host, ok := os.LookupEnv("CLIP_HOST")
+	if !ok {
+		panic("CLIP_HOST environment variable not set")
+	}
+
 	return &CLIPClient{
-		baseURL: "http://localhost:8001",
+		baseURL: host,
 		client:  &http.Client{},
 	}
 }
 
-func (c *CLIPClient) GenerateEmbeddings(image io.Reader) []float32 {
+func (c *CLIPClient) GenerateEmbeddings(image io.Reader) ([]float32, error) {
 	embeddings, err := c.generateEmbeddingsWithError(image)
 	if err != nil {
 		// Log error and return empty slice
 		// In production, you might want to handle this differently
-		return []float32{}
+		return []float32{}, err
 	}
-	return embeddings
+	return embeddings, nil
 }
 
 func (c *CLIPClient) generateEmbeddingsWithError(image io.Reader) ([]float32, error) {
@@ -88,4 +96,4 @@ func (c *CLIPClient) generateEmbeddingsWithError(image io.Reader) ([]float32, er
 }
 
 // Ensure CLIPClient implements the Embedder interface
-var _ Embedder = (*CLIPClient)(nil)
+var _ ai.Embedder = (*CLIPClient)(nil)
