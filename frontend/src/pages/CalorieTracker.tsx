@@ -1,6 +1,6 @@
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { Camera, Upload, Plus, Target, Zap } from "lucide-react"
+import { Camera, Upload, Plus, Target, Zap, LogOut } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Progress } from "../components/ui/progress"
@@ -10,6 +10,7 @@ import { MealReviewModal } from "../components/meal-review-modal"
 import { MealHistoryCard } from "../components/meal-history-card"
 import { WeeklyActivity } from "../components/weekly-activity"
 import { ThemeToggle } from "../components/theme-toggle"
+import { useAuth } from "../contexts/AuthContext"
 
 interface UserGoals {
   calories: number
@@ -49,6 +50,7 @@ export default function CalorieTracker() {
   const [selectedMeal, setSelectedMeal] = useState<MealEntry | null>(null)
   const [mealHistory, setMealHistory] = useState<MealEntry[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { logout } = useAuth()
 
   // Check if user is onboarded
   useEffect(() => {
@@ -236,7 +238,17 @@ export default function CalorieTracker() {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CalorieMate</h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Your personal nutrition assistant</p>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                title="Sign out"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </div>

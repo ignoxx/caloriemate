@@ -45,6 +45,7 @@
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
+    "pocketbase": "^0.26.2",
     "react": "^18",
     "react-day-picker": "9.8.0",
     "react-dom": "^18",

@@ -18,6 +18,7 @@ import (
 
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
 
+	"github.com/ignoxx/caloriemate/ai"
 	_ "github.com/ignoxx/caloriemate/migrations"
 )
 
@@ -50,8 +51,6 @@ func init() {
 var distDir embed.FS
 
 func main() {
-	godotenv.Load()
-
 	app := pocketbase.NewWithConfig(pocketbase.Config{
 		DefaultDataDir: "./pb_data",
 		DBConnect: func(dbPath string) (*dbx.DB, error) {
@@ -72,10 +71,16 @@ func main() {
 		},
 	})
 
+	godotenv.Load()
+	app.Logger().Info(".env file loaded")
+
+	ai.LoadTemplates()
+	app.Logger().Info("AI templates loaded")
+
 	stage := os.Getenv("STAGE")
 
 	distDirFs := os.DirFS("./pb_public")
-	if true { //stage == "prod" {
+	if stage == "prod" {
 		distDirFs, _ = fs.Sub(distDir, "frontend/build")
 	}
 

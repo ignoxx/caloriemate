@@ -1,7 +1,29 @@
 run:
-	@go run . serve
+	@go run . serve --http=0.0.0.0:8090
 
 SHELL := /bin/bash
+
+# CLIP Service - One command to rule them all
+clip-run:
+	@echo "🚀 Starting CLIP Embedding Service..."
+	@echo "📍 Service will be available at: http://localhost:8001"
+	@echo "📖 API Documentation at: http://localhost:8001/docs"
+	@echo ""
+	@if [ ! -d "clip/clip_env" ]; then \
+		echo "Creating virtual environment..."; \
+		cd clip && python3 -m venv clip_env; \
+	fi
+	@echo "Checking dependencies..."
+	@cd clip && source clip_env/bin/activate && python3 -c "import clip" 2>/dev/null && echo "✅ CLIP already installed" || { \
+		echo "Installing dependencies (this may take a few minutes)..."; \
+		source clip_env/bin/activate && pip install --upgrade pip; \
+		source clip_env/bin/activate && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu; \
+		source clip_env/bin/activate && pip install git+https://github.com/openai/CLIP.git; \
+		source clip_env/bin/activate && pip install -r requirements.txt; \
+		echo "✅ Setup complete!"; \
+	}
+	@echo "Starting CLIP service..."
+	@cd clip && source clip_env/bin/activate && python3 clip_service.py
 
 db:
 	@if [ ! -f vec0.dylib ]; then \
