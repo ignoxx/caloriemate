@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Check if user is already authenticated on app start
     const checkAuth = () => {
       if (pb.authStore.isValid && pb.authStore.record) {
-        setUser(pb.authStore.record as User)
+        setUser(pb.authStore.record as unknown as User)
       }
       setIsLoading(false)
     }
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const unsubscribe = pb.authStore.onChange(() => {
       if (pb.authStore.isValid && pb.authStore.record) {
-        setUser(pb.authStore.record as User)
+        setUser(pb.authStore.record as unknown as User)
       } else {
         setUser(null)
       }
@@ -46,25 +46,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string) => {
-    try {
-      const authData = await pb.collection('users').authWithPassword(email, password)
-      setUser(authData.record as User)
-    } catch (error) {
-      throw error
-    }
+    const authData = await pb.collection('users').authWithPassword(email, password)
+    setUser(authData.record as unknown as User)
   }
 
   const signup = async (data: SignupData) => {
-    try {
-      // Create the user account
-      const record = await pb.collection('users').create(data)
-      
-      // Automatically log them in after signup
-      const authData = await pb.collection('users').authWithPassword(data.email, data.password)
-      setUser(authData.record as User)
-    } catch (error) {
-      throw error
-    }
+    // Create the user account
+    await pb.collection('users').create(data)
+    
+    // Automatically log them in after signup
+    const authData = await pb.collection('users').authWithPassword(data.email, data.password)
+    setUser(authData.record as unknown as User)
   }
 
   const logout = () => {

@@ -13,9 +13,11 @@ import { Badge } from "../components/ui/badge";
 import { OnboardingModal } from "../components/onboarding-modal";
 import { MealReviewModal } from "../components/meal-review-modal";
 import { MealHistoryCard } from "../components/meal-history-card";
-import { WeeklyActivity } from "../components/weekly-activity";
+// import { WeeklyActivity } from "../components/weekly-activity";
 import { ThemeToggle } from "../components/theme-toggle";
 import { useAuth } from "../contexts/AuthContext";
+
+import pb from "../lib/pocketbase";
 
 interface UserGoals {
   calories: number;
@@ -26,24 +28,21 @@ interface UserGoals {
 
 interface MealEntry {
   id: string;
-  name: string;
-  calories: number | { min: number; max: number };
-  protein: number | { min: number; max: number };
-  timestamp: Date;
+  meal_name: string;
+  ai_description: string;
+  total_calories: number;
+  calorie_uncertainty_percent: number;
+  total_protein_g: number;
+  protein_uncertainty_percent: number;
+  total_carbs_g: number;
+  carbs_uncertainty_percent: number;
+  total_fat_g: number;
+  fat_uncertainty_percent: number;
+  analysis_notes: string;
   imageUrl?: string;
-  description?: string;
-  status: "processing" | "processed" | "confirmed";
-  analysisResults?: FoodMatch[];
-}
-
-interface FoodMatch {
-  id: string;
-  name: string;
-  calories: { min: number; max: number };
-  protein: { min: number; max: number };
-  source: "user" | "openfoodfacts";
-  confidence: number;
-  lastEaten?: Date;
+  processing_status: "pending" | "processing" | "completed" | "failed";
+  created: string;
+  updated: string;
 }
 
 export default function CalorieTracker() {
@@ -60,99 +59,83 @@ export default function CalorieTracker() {
   // Check if user is onboarded
   useEffect(() => {
     const savedGoals = localStorage.getItem("userGoals");
-    const savedMeals = localStorage.getItem("mealHistory");
 
     if (savedGoals) {
       setUserGoals(JSON.parse(savedGoals));
       setIsOnboarded(true);
     }
 
-    if (savedMeals) {
-      const meals = JSON.parse(savedMeals).map((meal: MealEntry) => ({
-        ...meal,
-        timestamp: new Date(meal.timestamp),
+    // Load meal history from PocketBase when component mounts
+    loadMealHistory();
+  }, []);
+
+  // Load meal history from PocketBase
+  const loadMealHistory = async () => {
+    try {
+      const records = await pb.collection("meal_history").getList(1, 50, {
+        sort: "-created",
+      });
+
+      const meals = records.items.map((record: Record<string, any>) => ({
+        id: record.id,
+        meal_name: record.meal_name || "Analyzing meal...",
+        ai_description: record.ai_description || "",
+        total_calories: record.total_calories || 0,
+        calorie_uncertainty_percent: record.calorie_uncertainty_percent || 0,
+        total_protein_g: record.total_protein_g || 0,
+        protein_uncertainty_percent: record.protein_uncertainty_percent || 0,
+        total_carbs_g: record.total_carbs_g || 0,
+        carbs_uncertainty_percent: record.carbs_uncertainty_percent || 0,
+        total_fat_g: record.total_fat_g || 0,
+        fat_uncertainty_percent: record.fat_uncertainty_percent || 0,
+        analysis_notes: record.analysis_notes || "",
+        imageUrl: record.image
+          ? pb.files.getURL(record, record.image)
+          : undefined,
+        processing_status: record.processing_status || "pending",
+        created: record.created,
+        updated: record.updated,
       }));
+
       setMealHistory(meals);
 
-      // Calculate today's totals (only confirmed meals)
+      // Calculate today's totals
       const today = new Date().toDateString();
       const todayMeals = meals.filter(
         (meal: MealEntry) =>
-          new Date(meal.timestamp).toDateString() === today &&
-          meal.status === "confirmed",
+          new Date(meal.created).toDateString() === today &&
+          meal.processing_status === "completed",
       );
 
       const totalCalories = todayMeals.reduce(
-        (sum: number, meal: MealEntry) => {
-          const calories =
-            typeof meal.calories === "number"
-              ? meal.calories
-              : meal.calories.max;
-          return sum + calories;
-        },
+        (sum, meal) => sum + meal.total_calories,
         0,
       );
-      const totalProtein = todayMeals.reduce((sum: number, meal: MealEntry) => {
-        const protein =
-          typeof meal.protein === "number" ? meal.protein : meal.protein.max;
-        return sum + protein;
-      }, 0);
+      const totalProtein = todayMeals.reduce(
+        (sum, meal) => sum + meal.total_protein_g,
+        0,
+      );
 
       setTodayCalories(totalCalories);
       setTodayProtein(totalProtein);
+    } catch (error) {
+      console.error("Failed to load meal history:", error);
     }
-  }, []);
+  };
 
-  // Simulate meal processing
+  // Poll for processing status updates
   useEffect(() => {
     const processingMeals = mealHistory.filter(
-      (meal) => meal.status === "processing",
+      (meal) => meal.processing_status === "processing",
     );
 
-    processingMeals.forEach((meal) => {
-      setTimeout(() => {
-        // Simulate analysis completion
-        const mockAnalysisResults: FoodMatch[] = [
-          {
-            id: "1",
-            name: "Grilled Chicken Breast with Rice",
-            calories: { min: 400, max: 500 },
-            protein: { min: 30, max: 40 },
-            source: "user",
-            confidence: 95,
-            lastEaten: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-          },
-          {
-            id: "2",
-            name: "Chicken Rice Bowl",
-            calories: { min: 480, max: 560 },
-            protein: { min: 28, max: 36 },
-            source: "openfoodfacts",
-            confidence: 87,
-          },
-          {
-            id: "3",
-            name: "Teriyaki Chicken with Steamed Rice",
-            calories: { min: 450, max: 510 },
-            protein: { min: 25, max: 31 },
-            source: "openfoodfacts",
-            confidence: 82,
-          },
-        ];
+    if (processingMeals.length > 0) {
+      const interval = setInterval(() => {
+        loadMealHistory();
+      }, 2000); // Poll every 2 seconds
 
-        setMealHistory((prev) =>
-          prev.map((m) =>
-            m.id === meal.id
-              ? {
-                  ...m,
-                  status: "processed" as const,
-                  analysisResults: mockAnalysisResults,
-                }
-              : m,
-          ),
-        );
-      }, 3000); // 3 second processing time
-    });
+      return () => clearInterval(interval);
+    }
   }, [mealHistory]);
 
   const handleOnboardingComplete = (goals: UserGoals) => {
@@ -163,15 +146,8 @@ export default function CalorieTracker() {
 
   const handleCameraCapture = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-
-      // For POC, we'll simulate camera capture
-      setTimeout(() => {
-        stream.getTracks().forEach((track) => track.stop());
-        handleImageCaptured("/placeholder.svg?height=300&width=300");
-      }, 1000);
+      // For now, fallback to file upload as camera capture would need more complex implementation
+      fileInputRef.current?.click();
     } catch (error) {
       console.error("Camera access denied:", error);
       // Fallback to file upload
@@ -182,59 +158,52 @@ export default function CalorieTracker() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        handleImageCaptured(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      handleImageCaptured(file);
     }
   };
 
-  const handleImageCaptured = (imageUrl: string) => {
-    // Immediately create a processing meal entry
-    const newMeal: MealEntry = {
-      id: Date.now().toString(),
-      name: "Analyzing meal...",
-      calories: 0,
-      protein: 0,
-      timestamp: new Date(),
-      imageUrl,
-      status: "processing",
-    };
+  const handleImageCaptured = async (imageFile: File) => {
+    try {
+      // Create FormData for file upload
+      // const formData = new FormData();
+      // formData.append("image", imageFile);
+      // formData.append("processing_status", "pending");
+      // formData.append("meal_name", "Analyzing meal...");
 
-    const updatedHistory = [...mealHistory, newMeal];
-    setMealHistory(updatedHistory);
-    localStorage.setItem("mealHistory", JSON.stringify(updatedHistory));
+      // Upload to PocketBase
+      // await pb.collection("meal_history").create(formData);
+
+      await pb.collection("meal_templates").create({
+        image: imageFile,
+        name: "Pending...",
+        processing_status: "pending"
+      });
+
+      // Refresh meal history to show the new meal
+      await loadMealHistory();
+    } catch (error) {
+      console.error("Error uploading image:", error);
+    }
   };
 
   const handleMealClick = (meal: MealEntry) => {
-    if (meal.status === "processed") {
+    if (meal.processing_status === "completed") {
       setSelectedMeal(meal);
       setShowMealReview(true);
     }
   };
 
-  const handleMealConfirmed = (confirmedMeal: MealEntry) => {
-    const updatedHistory = mealHistory.map((meal) =>
-      meal.id === confirmedMeal.id ? confirmedMeal : meal,
-    );
-    setMealHistory(updatedHistory);
-    localStorage.setItem("mealHistory", JSON.stringify(updatedHistory));
+  const handleMealConfirmed = async (confirmedMeal: MealEntry) => {
+    try {
+      // Update the meal status in PocketBase
+      await pb.collection("meal_history").update(confirmedMeal.id, {
+        processing_status: "completed",
+      });
 
-    // Update today's totals if it's today's meal
-    const today = new Date().toDateString();
-    if (new Date(confirmedMeal.timestamp).toDateString() === today) {
-      const calories =
-        typeof confirmedMeal.calories === "number"
-          ? confirmedMeal.calories
-          : confirmedMeal.calories.max;
-      const protein =
-        typeof confirmedMeal.protein === "number"
-          ? confirmedMeal.protein
-          : confirmedMeal.protein.max;
-
-      setTodayCalories((prev) => prev + calories);
-      setTodayProtein((prev) => prev + protein);
+      // Refresh meal history
+      await loadMealHistory();
+    } catch (error) {
+      console.error("Error confirming meal:", error);
     }
 
     setShowMealReview(false);
@@ -256,7 +225,7 @@ export default function CalorieTracker() {
 
   const todayMeals = mealHistory.filter(
     (meal) =>
-      new Date(meal.timestamp).toDateString() === new Date().toDateString(),
+      new Date(meal.created).toDateString() === new Date().toDateString(),
   );
 
   return (

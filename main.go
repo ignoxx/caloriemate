@@ -5,6 +5,7 @@ import (
 	"embed"
 	"io/fs"
 	"log"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -19,8 +20,9 @@ import (
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
 
 	"github.com/ignoxx/caloriemate/ai"
-	"github.com/ignoxx/caloriemate/ai/clip"
-	"github.com/ignoxx/caloriemate/ai/ollama"
+	// "github.com/ignoxx/caloriemate/ai/clip"
+
+	"github.com/ignoxx/caloriemate/ai/openrouter"
 	_ "github.com/ignoxx/caloriemate/migrations"
 )
 
@@ -92,8 +94,8 @@ func main() {
 		Automigrate: isGoRun,
 	})
 
-	ollamaClient := ollama.New()
-	clipClient := clip.New()
+	var llm ai.Analyzer = openrouter.New()
+	// var imgLlm ai.Embedder = clip.New()
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		// serves static files from the provided public dir (if exists)
@@ -104,32 +106,30 @@ func main() {
 
 	// Analyze the meal upon successful creation
 	app.OnRecordAfterCreateSuccess("meal_templates").BindFunc(func(e *core.RecordEvent) error {
-		// e.App
-		// e.Record
+		slog.Info("Starting meal template analysis", "recordId", e.Record.Id)
 
-		images := e.Record.GetUnsavedFiles("meal")
-		if len(images) == 0 {
-			e.App.Logger().Info("No image found for meal template analysis")
+		imageNames := e.Record.GetStringSlice("image")
+
+		path := e.Record.BaseFilesPath() + "/" + imageNames[0]
+		fsys, _ := app.NewFilesystem()
+		imageFile, err := fsys.GetReader(path)
+
+		if err != nil {
+			slog.Error("Failed to open meal template image", "error", err)
+			return e.Next()
+		}
+		defer imageFile.Close()
+
+		output, err := llm.AnalyzeImage(imageFile)
+		if err != nil {
+			slog.Error("Failed to analyze image for meal template", "error", err)
 			return e.Next()
 		}
 
-		image := images[0]
-		reader, err := image.Reader.Open()
+		userContext := e.Record.GetString("description")
+		meal, err := llm.EstimateNutritions(output, userContext)
 		if err != nil {
-			e.App.Logger().Error("Failed to open image for meal template analysis", "error", err)
-			return e.Next()
-		}
-
-		output, err := ollamaClient.AnalyzeImage(reader)
-		if err != nil {
-			e.App.Logger().Error("Failed to analyze image for meal template", "error", err)
-			return e.Next()
-		}
-
-		userContext := e.Record.GetString("additionalInformation")
-		meal, err := ollamaClient.EstimateNutritions(output, userContext)
-		if err != nil {
-			e.App.Logger().Error("Failed to estimate nutritions for meal template", "error", err)
+			slog.Error("Failed to estimate nutritions for meal template", "error", err)
 			return e.Next()
 		}
 
@@ -150,32 +150,34 @@ func main() {
 		e.Record.Set("fat_uncertainty_percent", meal.FatUncertaintyPercent)
 
 		if err := e.App.Save(e.Record); err != nil {
-			e.App.Logger().Error("Failed to save meal template after analysis", "error", err)
+			slog.Error("Failed to save meal template after analysis", "error", err)
 			return e.Next()
 		}
 
 		// now that we created meal, lets get the meals image vector and save it
-		embedding, err := clipClient.GenerateEmbeddings(reader)
-		if err != nil {
-			e.App.Logger().Error("Failed to generate image embedding for meal template", "error", err)
-			return e.Next()
-		}
+		// embedding, err := imgLlm.GenerateEmbeddings(imageFile)
+		// if err != nil {
+		// 	slog.Error("Failed to generate image embedding for meal template", "error", err)
+		// 	return e.Next()
+		// }
 
-		mealVector, err := sqlite_vec.SerializeFloat32(embedding)
-		if err != nil {
-			e.App.Logger().Error("Failed to serialize image embedding for meal template", "error", err)
-			return e.Next()
-		}
+		// mealVector, err := sqlite_vec.SerializeFloat32(embedding)
+		// if err != nil {
+		// 	slog.Error("Failed to serialize image embedding for meal template", "error", err)
+		// 	return e.Next()
+		// }
 
-		mealVectors, _ := e.App.FindCollectionByNameOrId("meal_vectors")
-		mealVecRecord := core.NewRecord(mealVectors)
-		mealVecRecord.Set("meal_template_id", e.Record.Id)
-		mealVecRecord.Set("embedding", mealVector)
+		// mealVectors, _ := e.App.FindCollectionByNameOrId("meal_vectors")
+		// mealVecRecord := core.NewRecord(mealVectors)
+		// mealVecRecord.Set("meal_template_id", e.Record.Id)
+		// mealVecRecord.Set("embedding", mealVector)
 
-		if err := e.App.Save(mealVecRecord); err != nil {
-			e.App.Logger().Error("Failed to save meal template image embedding", "error", err)
-			return e.Next()
-		}
+		// if err := e.App.Save(mealVecRecord); err != nil {
+		// 	slog.Error("Failed to save meal template image embedding", "error", err)
+		// 	return e.Next()
+		// }
+
+		slog.Info("Meal template analysis completed", "recordId", e.Record.Id)
 
 		return e.Next()
 	})

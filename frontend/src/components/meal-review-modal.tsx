@@ -6,29 +6,26 @@ import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Textarea } from "./ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-import { Badge } from "./ui/badge"
-import { X, CheckCircle, Clock, Database, Plus } from "lucide-react"
+
+import { X, CheckCircle, Plus } from "lucide-react"
 
 interface MealEntry {
-  id: string
-  name: string
-  calories: number | { min: number; max: number }
-  protein: number | { min: number; max: number }
-  timestamp: Date
-  imageUrl?: string
-  description?: string
-  status: "processing" | "processed" | "confirmed"
-  analysisResults?: FoodMatch[]
-}
-
-interface FoodMatch {
-  id: string
-  name: string
-  calories: { min: number; max: number }
-  protein: { min: number; max: number }
-  source: "user" | "openfoodfacts"
-  confidence: number
-  lastEaten?: Date
+  id: string;
+  meal_name: string;
+  ai_description: string;
+  total_calories: number;
+  calorie_uncertainty_percent: number;
+  total_protein_g: number;
+  protein_uncertainty_percent: number;
+  total_carbs_g: number;
+  carbs_uncertainty_percent: number;
+  total_fat_g: number;
+  fat_uncertainty_percent: number;
+  analysis_notes: string;
+  imageUrl?: string;
+  processing_status: "pending" | "processing" | "completed" | "failed";
+  created: string;
+  updated: string;
 }
 
 interface MealReviewModalProps {
@@ -38,61 +35,36 @@ interface MealReviewModalProps {
 }
 
 export function MealReviewModal({ meal, onMealConfirmed, onClose }: MealReviewModalProps) {
-  const [selectedFood, setSelectedFood] = useState<FoodMatch | null>(null)
   const [showCustomForm, setShowCustomForm] = useState(false)
-  const [customName, setCustomName] = useState("")
-  const [customCaloriesMin, setCustomCaloriesMin] = useState("")
-  const [customCaloriesMax, setCustomCaloriesMax] = useState("")
-  const [customProteinMin, setCustomProteinMin] = useState("")
-  const [customProteinMax, setCustomProteinMax] = useState("")
-  const [description, setDescription] = useState("")
-
-  const handleFoodSelect = (food: FoodMatch) => {
-    setSelectedFood(food)
-    setShowCustomForm(false)
-  }
-
-  const handleCustomMeal = () => {
-    setShowCustomForm(true)
-    setSelectedFood(null)
-  }
+  const [customName, setCustomName] = useState(meal.meal_name)
+  const [customCalories, setCustomCalories] = useState(meal.total_calories.toString())
+  const [customProtein, setCustomProtein] = useState(meal.total_protein_g.toString())
+  const [customCarbs, setCustomCarbs] = useState(meal.total_carbs_g.toString())
+  const [customFat, setCustomFat] = useState(meal.total_fat_g.toString())
+  const [description, setDescription] = useState(meal.ai_description)
 
   const handleConfirmMeal = () => {
-    let confirmedMeal: MealEntry
-
-    if (selectedFood) {
-      confirmedMeal = {
-        ...meal,
-        name: selectedFood.name,
-        calories: selectedFood.calories,
-        protein: selectedFood.protein,
-        status: "confirmed",
-        description: description || undefined,
-      }
-    } else if (showCustomForm) {
-      confirmedMeal = {
-        ...meal,
-        name: customName,
-        calories: {
-          min: Number.parseInt(customCaloriesMin),
-          max: Number.parseInt(customCaloriesMax),
-        },
-        protein: {
-          min: Number.parseInt(customProteinMin),
-          max: Number.parseInt(customProteinMax),
-        },
-        status: "confirmed",
-        description: description || undefined,
-      }
-    } else {
-      return
+    const confirmedMeal: MealEntry = {
+      ...meal,
+      meal_name: showCustomForm ? customName : meal.meal_name,
+      total_calories: showCustomForm ? parseInt(customCalories) : meal.total_calories,
+      total_protein_g: showCustomForm ? parseInt(customProtein) : meal.total_protein_g,
+      total_carbs_g: showCustomForm ? parseInt(customCarbs) : meal.total_carbs_g,
+      total_fat_g: showCustomForm ? parseInt(customFat) : meal.total_fat_g,
+      ai_description: description,
+      processing_status: "completed" as const,
     }
 
     onMealConfirmed(confirmedMeal)
   }
 
-  const formatRange = (range: { min: number; max: number }, unit = "") => {
-    return `${range.min}-${range.max}${unit}`
+  const formatNutritionWithUncertainty = (value: number, uncertainty: number, unit: string) => {
+    if (uncertainty > 0) {
+      const min = Math.round(value * (1 - uncertainty / 100));
+      const max = Math.round(value * (1 + uncertainty / 100));
+      return `${min}-${max}${unit}`;
+    }
+    return `${value}${unit}`;
   }
 
   return (
@@ -114,71 +86,66 @@ export function MealReviewModal({ meal, onMealConfirmed, onClose }: MealReviewMo
             <img src={meal.imageUrl || "/placeholder.svg"} alt="Your meal" className="w-full h-full object-cover" />
           </div>
 
-          {/* Analysis Results */}
-          {meal.analysisResults && meal.analysisResults.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="font-medium text-gray-900 dark:text-white">Found matches:</h3>
-              {meal.analysisResults.map((food) => (
-                <Card
-                  key={food.id}
-                  className={`cursor-pointer transition-colors ${
-                    selectedFood?.id === food.id
-                      ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/50"
-                      : "hover:bg-gray-50 dark:hover:bg-gray-800"
-                  }`}
-                  onClick={() => handleFoodSelect(food)}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-medium text-sm dark:text-white">{food.name}</h4>
-                      <div className="flex gap-1">
-                        {food.source === "user" && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Previous
-                          </Badge>
-                        )}
-                        {food.source === "openfoodfacts" && (
-                          <Badge variant="outline" className="text-xs">
-                            <Database className="h-3 w-3 mr-1" />
-                            Database
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                      <span>{formatRange(food.calories)} kcal</span>
-                      <span>{formatRange(food.protein, "g")} protein</span>
-                      <span>{food.confidence}% match</span>
-                    </div>
-                    {food.lastEaten && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Last eaten {Math.floor((Date.now() - food.lastEaten.getTime()) / (1000 * 60 * 60 * 24))} days
-                        ago
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          {/* AI Analysis Results */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-gray-900 dark:text-white">AI Analysis:</h3>
+            <Card className="bg-gray-50 dark:bg-gray-800">
+              <CardContent className="p-3">
+                <h4 className="font-medium text-sm dark:text-white mb-2">{meal.meal_name}</h4>
+                {meal.ai_description && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{meal.ai_description}</p>
+                )}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-gray-500">Calories:</span>
+                    <span className="ml-1 font-medium">
+                      {formatNutritionWithUncertainty(meal.total_calories, meal.calorie_uncertainty_percent, "")}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Protein:</span>
+                    <span className="ml-1 font-medium">
+                      {formatNutritionWithUncertainty(meal.total_protein_g, meal.protein_uncertainty_percent, "g")}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Carbs:</span>
+                    <span className="ml-1 font-medium">
+                      {formatNutritionWithUncertainty(meal.total_carbs_g, meal.carbs_uncertainty_percent, "g")}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Fat:</span>
+                    <span className="ml-1 font-medium">
+                      {formatNutritionWithUncertainty(meal.total_fat_g, meal.fat_uncertainty_percent, "g")}
+                    </span>
+                  </div>
+                </div>
+                {meal.analysis_notes && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{meal.analysis_notes}</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Custom Meal Option */}
+          {/* Edit Option */}
           <Card
             className={`cursor-pointer transition-colors ${
               showCustomForm
                 ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/50"
                 : "hover:bg-gray-50 dark:hover:bg-gray-800"
             }`}
-            onClick={handleCustomMeal}
+            onClick={() => setShowCustomForm(!showCustomForm)}
           >
             <CardContent className="p-3">
               <div className="flex items-center gap-2">
                 <Plus className="h-4 w-4 text-blue-600" />
-                <span className="font-medium text-sm dark:text-white">Create custom meal</span>
+                <span className="font-medium text-sm dark:text-white">
+                  {showCustomForm ? "Use AI analysis" : "Edit meal details"}
+                </span>
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Enter your own meal details and nutrition ranges
+                {showCustomForm ? "Accept the AI analysis as is" : "Modify the meal name and nutrition values"}
               </p>
             </CardContent>
           </Card>
@@ -198,75 +165,70 @@ export function MealReviewModal({ meal, onMealConfirmed, onClose }: MealReviewMo
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="caloriesMin">Min Calories</Label>
+                  <Label htmlFor="calories">Calories</Label>
                   <Input
-                    id="caloriesMin"
+                    id="calories"
                     type="number"
-                    value={customCaloriesMin}
-                    onChange={(e) => setCustomCaloriesMin(e.target.value)}
+                    value={customCalories}
+                    onChange={(e) => setCustomCalories(e.target.value)}
                     placeholder="400"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="caloriesMax">Max Calories</Label>
+                  <Label htmlFor="protein">Protein (g)</Label>
                   <Input
-                    id="caloriesMax"
+                    id="protein"
                     type="number"
-                    value={customCaloriesMax}
-                    onChange={(e) => setCustomCaloriesMax(e.target.value)}
-                    placeholder="500"
+                    value={customProtein}
+                    onChange={(e) => setCustomProtein(e.target.value)}
+                    placeholder="25"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="proteinMin">Min Protein (g)</Label>
+                  <Label htmlFor="carbs">Carbs (g)</Label>
                   <Input
-                    id="proteinMin"
+                    id="carbs"
                     type="number"
-                    value={customProteinMin}
-                    onChange={(e) => setCustomProteinMin(e.target.value)}
-                    placeholder="25"
+                    value={customCarbs}
+                    onChange={(e) => setCustomCarbs(e.target.value)}
+                    placeholder="45"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="proteinMax">Max Protein (g)</Label>
+                  <Label htmlFor="fat">Fat (g)</Label>
                   <Input
-                    id="proteinMax"
+                    id="fat"
                     type="number"
-                    value={customProteinMax}
-                    onChange={(e) => setCustomProteinMax(e.target.value)}
-                    placeholder="35"
+                    value={customFat}
+                    onChange={(e) => setCustomFat(e.target.value)}
+                    placeholder="15"
                   />
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Description */}
-          {(selectedFood || showCustomForm) && (
-            <div className="space-y-2 pt-4 border-t dark:border-gray-700">
-              <Label htmlFor="description">Additional notes (optional)</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g., extra sauce, no vegetables..."
-                rows={2}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Meal description..."
+                  rows={2}
+                />
+              </div>
             </div>
           )}
         </CardContent>
 
         {/* Fixed bottom button */}
-        {(selectedFood || (showCustomForm && customName && customCaloriesMin && customCaloriesMax)) && (
-          <div className="p-4 border-t bg-white dark:bg-gray-900 dark:border-gray-700 rounded-b-xl">
-            <Button onClick={handleConfirmMeal} className="w-full" size="lg">
-              Confirm Meal
-            </Button>
-          </div>
-        )}
+        <div className="p-4 border-t bg-white dark:bg-gray-900 dark:border-gray-700 rounded-b-xl">
+          <Button onClick={handleConfirmMeal} className="w-full" size="lg">
+            Confirm Meal
+          </Button>
+        </div>
       </Card>
     </div>
   )

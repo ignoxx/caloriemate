@@ -35,7 +35,7 @@ func New() *CLIPClient {
 	}
 }
 
-func (c *CLIPClient) GenerateEmbeddings(image io.Reader) ([]float32, error) {
+func (c *CLIPClient) GenerateEmbeddings(image io.ReadSeeker) ([]float32, error) {
 	embeddings, err := c.generateEmbeddingsWithError(image)
 	if err != nil {
 		// Log error and return empty slice
@@ -45,7 +45,7 @@ func (c *CLIPClient) GenerateEmbeddings(image io.Reader) ([]float32, error) {
 	return embeddings, nil
 }
 
-func (c *CLIPClient) generateEmbeddingsWithError(image io.Reader) ([]float32, error) {
+func (c *CLIPClient) generateEmbeddingsWithError(image io.ReadSeeker) ([]float32, error) {
 	// Create multipart form
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)

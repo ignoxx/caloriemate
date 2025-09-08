@@ -1,6 +1,7 @@
 import PocketBase from 'pocketbase'
 
-const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090')
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const pb = new PocketBase((import.meta as any).env?.VITE_PB_URL || 'http://localhost:8090')
 
 export default pb
 
@@ -13,4 +14,6 @@ export interface User {
   avatar?: string
   created: string
   updated: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any // Allow additional properties from PocketBase
 }

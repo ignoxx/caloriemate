@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	VISION_QWEN2_5vl_7b = "qwen2.5vl:7b"
-	TEXT_GEMMA3n_E4b    = "gemma3n:e4b"
+	VISION_MODEL = "qwen2.5vl:7b"
+	TEXT_MODEl   = "gemma3n:e4b"
 )
 
 type Client struct {
@@ -26,8 +26,7 @@ func New() *Client {
 	return &Client{client}
 }
 
-func (c *Client) AnalyzeImage(input io.Reader) (string, error) {
-	// api.ChatRequest(api)
+func (c *Client) AnalyzeImage(input io.ReadSeeker) (string, error) {
 	return "", nil
 }
 
