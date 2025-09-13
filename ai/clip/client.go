@@ -50,8 +50,11 @@ func (c *CLIPClient) generateEmbeddingsWithError(image io.ReadSeeker) ([]float32
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
-	// Add the image file
-	part, err := writer.CreateFormFile("file", "image.jpg")
+	// Add the image file with proper MIME type
+	part, err := writer.CreatePart(map[string][]string{
+		"Content-Disposition": {`form-data; name="file"; filename="image.jpg"`},
+		"Content-Type":        {"image/jpeg"},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create form file: %w", err)
 	}

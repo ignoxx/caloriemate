@@ -10,7 +10,7 @@ func init() {
 		// Create vector table for image embeddings (CLIP - 512 dimensions)
 		_, err := app.DB().NewQuery(`
             CREATE VIRTUAL TABLE IF NOT EXISTS meal_image_vectors USING vec0(
-                meal_template_id TEXT PRIMARY KEY,
+                meal_template_id TEXT,
                 embedding float[512]
             );
         `).Execute()

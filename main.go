@@ -151,13 +151,12 @@ func main() {
 		}
 
 		var mealMatches []struct {
-			MealTemplateID string    `db:"meal_template_id"`
-			Embedding      []float32 `db:"embedding"`
-			Distance       float32   `db:"distance"`
+			MealTemplateID string  `db:"meal_template_id"`
+			Distance       float32 `db:"distance"`
 		}
 
-		err = e.App.DB().NewQuery("SELECT * FROM meal_vectors WHERE embedding MATCH {:mealVector} AND and distance <= 0.8 ORDER BY distance LIMIT 5;").Bind(dbx.Params{
-			"embedding": mealVector,
+		err = e.App.DB().NewQuery("SELECT meal_template_id, distance FROM meal_image_vectors WHERE embedding MATCH {:mealVector} AND k = 5;").Bind(dbx.Params{
+			"mealVector": mealVector,
 		}).All(&mealMatches)
 
 		if err != nil {
@@ -165,7 +164,7 @@ func main() {
 			return e.Next() // idk if we should exit here
 		}
 
-		slog.Info("Found similar meal templates", "count", len(mealMatches), "recordId", e.Record.Id)
+		slog.Info("Found similar meal templates", "count", len(mealMatches), "recordId", e.Record.Id, "data", mealMatches)
 		//TODO: if similar matches found, somehow propagate that to the user :shrug:
 
 		output, err := llm.AnalyzeImage(imageFile)
@@ -202,14 +201,14 @@ func main() {
 			return e.Next()
 		}
 
-		mealVectors, _ := e.App.FindCollectionByNameOrId("meal_vectors")
-		mealVecRecord := core.NewRecord(mealVectors)
-		mealVecRecord.Set("meal_template_id", e.Record.Id)
-		mealVecRecord.Set("embedding", mealVector)
+		_, err = e.App.DB().NewQuery("INSERT INTO meal_image_vectors(meal_template_id, embedding) VALUES ({:meal_template_id}, {:embedding})").Bind(
+			dbx.Params{
+				"meal_template_id": e.Record.Id,
+				"embedding":        mealVector,
+			}).Execute()
 
-		if err := e.App.Save(mealVecRecord); err != nil {
-			slog.Error("Failed to save meal template image embedding", "error", err)
-			return e.Next()
+		if err != nil {
+			slog.Info("Failed to save meal template image embedding", "error", err)
 		}
 
 		slog.Info("Meal template analysis completed", "recordId", e.Record.Id)
