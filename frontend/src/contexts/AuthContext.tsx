@@ -1,12 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import pb, { type User } from '../lib/pocketbase'
-
-interface SignupData {
-  email: string
-  password: string
-  passwordConfirm: string
-  name?: string
-}
+import { SignupData } from '../types/common'
 
 interface AuthContextType {
   user: User | null
@@ -23,8 +17,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Clean up old localStorage data that might cause issues
+    const cleanupOldStorage = () => {
+      try {
+        // Remove any old user goals that might conflict
+        const oldKeys = ['userGoals', 'isOnboarded', 'onboardingData'];
+        oldKeys.forEach(key => {
+          if (localStorage.getItem(key)) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (error) {
+        console.warn('Failed to cleanup old localStorage:', error);
+      }
+    };
+
     // Check if user is already authenticated on app start
     const checkAuth = () => {
+      cleanupOldStorage();
+      
       if (pb.authStore.isValid && pb.authStore.record) {
         setUser(pb.authStore.record as unknown as User)
       }
@@ -53,10 +64,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signup = async (data: SignupData) => {
     // Create the user account
     await pb.collection('users').create(data)
-    
+
     // Automatically log them in after signup
     const authData = await pb.collection('users').authWithPassword(data.email, data.password)
     setUser(authData.record as unknown as User)
+
+    // Create user profile with goals if provided
+    if (data.onboardingData && data.userGoals) {
+      try {
+        await pb.collection('user_profiles').create({
+          user: authData.record.id,
+          target_calories: data.userGoals.target_calories,
+          target_protein_g: data.userGoals.target_protein_g,
+          weight_kg: data.onboardingData.weight,
+          age: data.onboardingData.age,
+          height_cm: data.onboardingData.height,
+          gender: data.onboardingData.gender,
+          activity_level: data.onboardingData.activityLevel,
+          goal: data.onboardingData.goal,
+        })
+      } catch (error) {
+        console.error('Failed to create user profile:', error)
+        throw error
+      }
+    }
   }
 
   const logout = () => {

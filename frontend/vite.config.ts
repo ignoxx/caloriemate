@@ -12,4 +12,9 @@ export default defineConfig({
   build: {
     outDir: 'build',
   },
+  server: {
+    allowedHosts: [
+      "m1"
+    ]
+  }
 })

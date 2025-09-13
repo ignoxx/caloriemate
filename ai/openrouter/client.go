@@ -53,7 +53,7 @@ func (c *Client) AnalyzeImage(image io.ReadSeeker) (string, error) {
 	}
 
 	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
-		Model: "qwen/qwen2.5-vl-72b-instruct:free",
+		Model: "qwen/qwen2.5-vl-72b-instruct",
 		Messages: []openrouter.ChatCompletionMessage{
 			{
 				Role: "user",
@@ -105,7 +105,7 @@ func (c *Client) EstimateNutritions(analyzerOutput, userContext string) (types.M
 
 	ctx := context.Background()
 	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
-		Model: "openai/gpt-oss-120b:free",
+		Model: "google/gemini-2.5-flash-lite",
 		Reasoning: &openrouter.ChatCompletionReasoning{
 			Effort: utils.ToPtr("low"),
 		},
@@ -131,7 +131,7 @@ func (c *Client) EstimateNutritions(analyzerOutput, userContext string) (types.M
 }
 
 func (c *Client) validateJSON(s string) (types.Meal, error) {
-	s, _ = strings.CutPrefix(s, "```")
+	s, _ = strings.CutPrefix(s, "```json")
 	s, _ = strings.CutSuffix(s, "```")
 
 	var meal types.Meal

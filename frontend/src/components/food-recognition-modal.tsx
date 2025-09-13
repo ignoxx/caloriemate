@@ -1,47 +1,30 @@
-
-
-import { useState } from "react"
-import { Button } from "./ui/button"
-import { Input } from "./ui/input"
-import { Label } from "./ui/label"
-import { Textarea } from "./ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-import { Badge } from "./ui/badge"
-import { X, Search, Clock, Database } from "lucide-react"
-
-interface MealEntry {
-  id: string
-  name: string
-  calories: number
-  protein: number
-  timestamp: Date
-  imageUrl?: string
-  description?: string
-}
-
-interface FoodMatch {
-  id: string
-  name: string
-  calories: number
-  protein: number
-  source: "user" | "openfoodfacts"
-  confidence: number
-  lastEaten?: Date
-}
+import { useState } from "react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { X, Search, Clock, Database } from "lucide-react";
+import { LegacyMealEntry, FoodMatch } from "../types/common";
 
 interface FoodRecognitionModalProps {
-  imageUrl: string
-  onMealLogged: (meal: MealEntry) => void
-  onClose: () => void
+  imageUrl: string;
+  onMealLogged: (meal: LegacyMealEntry) => void;
+  onClose: () => void;
 }
 
-export function FoodRecognitionModal({ imageUrl, onMealLogged, onClose }: FoodRecognitionModalProps) {
-  const [selectedFood, setSelectedFood] = useState<FoodMatch | null>(null)
-  const [weight, setWeight] = useState("")
-  const [customCalories, setCustomCalories] = useState("")
-  const [customProtein, setCustomProtein] = useState("")
-  const [description, setDescription] = useState("")
-  const [isAnalyzing, setIsAnalyzing] = useState(true)
+export function FoodRecognitionModal({
+  imageUrl,
+  onMealLogged,
+  onClose,
+}: FoodRecognitionModalProps) {
+  const [selectedFood, setSelectedFood] = useState<FoodMatch | null>(null);
+  const [weight, setWeight] = useState("");
+  const [customCalories, setCustomCalories] = useState("");
+  const [customProtein, setCustomProtein] = useState("");
+  const [description, setDescription] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(true);
 
   // Mock food recognition results
   const [foodMatches] = useState<FoodMatch[]>([
@@ -70,36 +53,40 @@ export function FoodRecognitionModal({ imageUrl, onMealLogged, onClose }: FoodRe
       source: "openfoodfacts",
       confidence: 82,
     },
-  ])
+  ]);
 
   // Simulate analysis completion
   useState(() => {
-    setTimeout(() => setIsAnalyzing(false), 2000)
-  })
+    setTimeout(() => setIsAnalyzing(false), 2000);
+  });
 
   const handleFoodSelect = (food: FoodMatch) => {
-    setSelectedFood(food)
-    setCustomCalories(food.calories.toString())
-    setCustomProtein(food.protein.toString())
-  }
+    setSelectedFood(food);
+    setCustomCalories(food.calories.toString());
+    setCustomProtein(food.protein.toString());
+  };
 
   const handleLogMeal = () => {
-    if (!selectedFood) return
+    if (!selectedFood) return;
 
-    const finalCalories = customCalories ? Number.parseInt(customCalories) : selectedFood.calories
-    const finalProtein = customProtein ? Number.parseInt(customProtein) : selectedFood.protein
+    const finalCalories = customCalories
+      ? Number.parseInt(customCalories)
+      : selectedFood.calories;
+    const finalProtein = customProtein
+      ? Number.parseInt(customProtein)
+      : selectedFood.protein;
 
     // Apply weight adjustment if provided
-    let adjustedCalories = finalCalories
-    let adjustedProtein = finalProtein
+    let adjustedCalories = finalCalories;
+    let adjustedProtein = finalProtein;
 
     if (weight) {
-      const weightMultiplier = Number.parseInt(weight) / 100 // assuming base is per 100g
-      adjustedCalories = Math.round(finalCalories * weightMultiplier)
-      adjustedProtein = Math.round(finalProtein * weightMultiplier)
+      const weightMultiplier = Number.parseInt(weight) / 100; // assuming base is per 100g
+      adjustedCalories = Math.round(finalCalories * weightMultiplier);
+      adjustedProtein = Math.round(finalProtein * weightMultiplier);
     }
 
-    const meal: MealEntry = {
+    const meal: LegacyMealEntry = {
       id: Date.now().toString(),
       name: selectedFood.name,
       calories: adjustedCalories,
@@ -107,10 +94,10 @@ export function FoodRecognitionModal({ imageUrl, onMealLogged, onClose }: FoodRe
       timestamp: new Date(),
       imageUrl,
       description: description || undefined,
-    }
+    };
 
-    onMealLogged(meal)
-  }
+    onMealLogged(meal);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 md:items-center">
@@ -128,7 +115,11 @@ export function FoodRecognitionModal({ imageUrl, onMealLogged, onClose }: FoodRe
         <CardContent className="space-y-4 overflow-y-auto flex-1 pb-6">
           {/* Captured Image */}
           <div className="aspect-square w-full max-w-48 mx-auto rounded-lg overflow-hidden bg-gray-100">
-            <img src={imageUrl || "/placeholder.svg"} alt="Captured food" className="w-full h-full object-cover" />
+            <img
+              src={imageUrl || "/placeholder.svg"}
+              alt="Captured food"
+              className="w-full h-full object-cover"
+            />
           </div>
 
           {isAnalyzing ? (
@@ -145,7 +136,9 @@ export function FoodRecognitionModal({ imageUrl, onMealLogged, onClose }: FoodRe
                   <Card
                     key={food.id}
                     className={`cursor-pointer transition-colors ${
-                      selectedFood?.id === food.id ? "ring-2 ring-blue-500 bg-blue-50" : "hover:bg-gray-50"
+                      selectedFood?.id === food.id
+                        ? "ring-2 ring-blue-500 bg-blue-50"
+                        : "hover:bg-gray-50"
                     }`}
                     onClick={() => handleFoodSelect(food)}
                   >
@@ -174,8 +167,12 @@ export function FoodRecognitionModal({ imageUrl, onMealLogged, onClose }: FoodRe
                       </div>
                       {food.lastEaten && (
                         <p className="text-xs text-gray-500 mt-1">
-                          Last eaten {Math.floor((Date.now() - food.lastEaten.getTime()) / (1000 * 60 * 60 * 24))} days
-                          ago
+                          Last eaten{" "}
+                          {Math.floor(
+                            (Date.now() - food.lastEaten.getTime()) /
+                              (1000 * 60 * 60 * 24),
+                          )}{" "}
+                          days ago
                         </p>
                       )}
                     </CardContent>
@@ -223,7 +220,9 @@ export function FoodRecognitionModal({ imageUrl, onMealLogged, onClose }: FoodRe
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Additional notes - Optional</Label>
+                    <Label htmlFor="description">
+                      Additional notes - Optional
+                    </Label>
                     <Textarea
                       id="description"
                       value={description}
@@ -248,5 +247,5 @@ export function FoodRecognitionModal({ imageUrl, onMealLogged, onClose }: FoodRe
         )}
       </Card>
     </div>
-  )
+  );
 }

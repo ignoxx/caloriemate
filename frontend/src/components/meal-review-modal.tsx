@@ -1,71 +1,88 @@
+import { useState } from "react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
+import { X, CheckCircle, Plus } from "lucide-react";
+import { MealEntry } from "@/types/common";
 
-import { useState } from "react"
-import { Button } from "./ui/button"
-import { Input } from "./ui/input"
-import { Label } from "./ui/label"
-import { Textarea } from "./ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-
-import { X, CheckCircle, Plus } from "lucide-react"
-
-interface MealEntry {
-  id: string;
-  meal_name: string;
-  ai_description: string;
-  total_calories: number;
-  calorie_uncertainty_percent: number;
-  total_protein_g: number;
-  protein_uncertainty_percent: number;
-  total_carbs_g: number;
-  carbs_uncertainty_percent: number;
-  total_fat_g: number;
-  fat_uncertainty_percent: number;
-  analysis_notes: string;
-  imageUrl?: string;
-  processing_status: "pending" | "processing" | "completed" | "failed";
-  created: string;
-  updated: string;
-}
+// interface MealEntry {
+//   id: string;
+//   meal_name: string;
+//   aiDescription: string;
+//   totalCalories: number;
+//   calorieUncertaintyPercent: number;
+//   totalProteinG: number;
+//   proteinUncertaintyPercent: number;
+//   totalCarbsG: number;
+//   carbsUncertaintyPercent: number;
+//   totalFatG: number;
+//   fatUncertaintyPercent: number;
+//   analysisNotes: string;
+//   imageUrl?: string;
+//   processing_status: "pending" | "processing" | "completed" | "failed";
+//   created: string;
+//   updated: string;
+// }
 
 interface MealReviewModalProps {
-  meal: MealEntry
-  onMealConfirmed: (meal: MealEntry) => void
-  onClose: () => void
+  meal: MealEntry;
+  onMealConfirmed: (meal: MealEntry) => void;
+  onClose: () => void;
 }
 
-export function MealReviewModal({ meal, onMealConfirmed, onClose }: MealReviewModalProps) {
-  const [showCustomForm, setShowCustomForm] = useState(false)
-  const [customName, setCustomName] = useState(meal.meal_name)
-  const [customCalories, setCustomCalories] = useState(meal.total_calories.toString())
-  const [customProtein, setCustomProtein] = useState(meal.total_protein_g.toString())
-  const [customCarbs, setCustomCarbs] = useState(meal.total_carbs_g.toString())
-  const [customFat, setCustomFat] = useState(meal.total_fat_g.toString())
-  const [description, setDescription] = useState(meal.ai_description)
+export function MealReviewModal({
+  meal,
+  onMealConfirmed,
+  onClose,
+}: MealReviewModalProps) {
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const [customName, setCustomName] = useState(meal.name);
+  const [customCalories, setCustomCalories] = useState(
+    meal.totalCalories.toString(),
+  );
+  const [customProtein, setCustomProtein] = useState(
+    meal.totalProteinG.toString(),
+  );
+  const [customCarbs, setCustomCarbs] = useState(meal.totalCarbsG.toString());
+  const [customFat, setCustomFat] = useState(meal.totalFatG.toString());
+  const [description, setDescription] = useState(meal.aiDescription);
 
   const handleConfirmMeal = () => {
     const confirmedMeal: MealEntry = {
       ...meal,
-      meal_name: showCustomForm ? customName : meal.meal_name,
-      total_calories: showCustomForm ? parseInt(customCalories) : meal.total_calories,
-      total_protein_g: showCustomForm ? parseInt(customProtein) : meal.total_protein_g,
-      total_carbs_g: showCustomForm ? parseInt(customCarbs) : meal.total_carbs_g,
-      total_fat_g: showCustomForm ? parseInt(customFat) : meal.total_fat_g,
-      ai_description: description,
-      processing_status: "completed" as const,
-    }
+      name: showCustomForm ? customName : meal.name,
+      totalCalories: showCustomForm
+        ? parseInt(customCalories)
+        : meal.totalCalories,
+      totalProteinG: showCustomForm
+        ? parseInt(customProtein)
+        : meal.totalProteinG,
+      totalCarbsG: showCustomForm
+        ? parseInt(customCarbs)
+        : meal.totalCarbsG,
+      totalFatG: showCustomForm ? parseInt(customFat) : meal.totalFatG,
+      aiDescription: description,
+      processingStatus: "completed" as const,
+    };
 
-    onMealConfirmed(confirmedMeal)
-  }
+    onMealConfirmed(confirmedMeal);
+  };
 
-  const formatNutritionWithUncertainty = (value: number, uncertainty: number, unit: string) => {
+  const formatNutritionWithUncertainty = (
+    value: number,
+    uncertainty: number,
+    unit: string,
+  ) => {
     if (uncertainty > 0) {
       const min = Math.round(value * (1 - uncertainty / 100));
       const max = Math.round(value * (1 + uncertainty / 100));
       return `${min}-${max}${unit}`;
     }
     return `${value}${unit}`;
-  }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 md:items-center">
@@ -83,46 +100,74 @@ export function MealReviewModal({ meal, onMealConfirmed, onClose }: MealReviewMo
         <CardContent className="space-y-4 overflow-y-auto flex-1 pb-6">
           {/* Captured Image */}
           <div className="aspect-square w-full max-w-48 mx-auto rounded-lg overflow-hidden bg-gray-100">
-            <img src={meal.imageUrl || "/placeholder.svg"} alt="Your meal" className="w-full h-full object-cover" />
+            <img
+              src={meal.imageUrl || "/placeholder.svg"}
+              alt="Your meal"
+              className="w-full h-full object-cover"
+            />
           </div>
 
           {/* AI Analysis Results */}
           <div className="space-y-3">
-            <h3 className="font-medium text-gray-900 dark:text-white">AI Analysis:</h3>
+            <h3 className="font-medium text-gray-900 dark:text-white">
+              AI Analysis:
+            </h3>
             <Card className="bg-gray-50 dark:bg-gray-800">
               <CardContent className="p-3">
-                <h4 className="font-medium text-sm dark:text-white mb-2">{meal.meal_name}</h4>
-                {meal.ai_description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{meal.ai_description}</p>
+                <h4 className="font-medium text-sm dark:text-white mb-2">
+                  {meal.name}
+                </h4>
+                {meal.aiDescription && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    {meal.aiDescription}
+                  </p>
                 )}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-gray-500">Calories:</span>
                     <span className="ml-1 font-medium">
-                      {formatNutritionWithUncertainty(meal.total_calories, meal.calorie_uncertainty_percent, "")}
+                      {formatNutritionWithUncertainty(
+                        meal.totalCalories,
+                        meal.calorieUncertaintyPercent,
+                        "",
+                      )}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-500">Protein:</span>
                     <span className="ml-1 font-medium">
-                      {formatNutritionWithUncertainty(meal.total_protein_g, meal.protein_uncertainty_percent, "g")}
+                      {formatNutritionWithUncertainty(
+                        meal.totalProteinG,
+                        meal.proteinUncertaintyPercent,
+                        "g",
+                      )}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-500">Carbs:</span>
                     <span className="ml-1 font-medium">
-                      {formatNutritionWithUncertainty(meal.total_carbs_g, meal.carbs_uncertainty_percent, "g")}
+                      {formatNutritionWithUncertainty(
+                        meal.totalCarbsG,
+                        meal.carbsUncertaintyPercent,
+                        "g",
+                      )}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-500">Fat:</span>
                     <span className="ml-1 font-medium">
-                      {formatNutritionWithUncertainty(meal.total_fat_g, meal.fat_uncertainty_percent, "g")}
+                      {formatNutritionWithUncertainty(
+                        meal.totalFatG,
+                        meal.fatUncertaintyPercent,
+                        "g",
+                      )}
                     </span>
                   </div>
                 </div>
-                {meal.analysis_notes && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{meal.analysis_notes}</p>
+                {meal.aiDescription && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    {meal.aiDescription}
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -145,7 +190,9 @@ export function MealReviewModal({ meal, onMealConfirmed, onClose }: MealReviewMo
                 </span>
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                {showCustomForm ? "Accept the AI analysis as is" : "Modify the meal name and nutrition values"}
+                {showCustomForm
+                  ? "Accept the AI analysis as is"
+                  : "Modify the meal name and nutrition values"}
               </p>
             </CardContent>
           </Card>
@@ -231,5 +278,5 @@ export function MealReviewModal({ meal, onMealConfirmed, onClose }: MealReviewMo
         </div>
       </Card>
     </div>
-  )
+  );
 }

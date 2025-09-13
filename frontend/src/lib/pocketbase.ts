@@ -1,7 +1,7 @@
 import PocketBase from 'pocketbase'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const pb = new PocketBase((import.meta as any).env?.VITE_PB_URL || 'http://localhost:8090')
+const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090')
 
 export default pb
 

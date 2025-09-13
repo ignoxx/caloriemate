@@ -3,11 +3,11 @@ package main
 import (
 	"database/sql"
 	"embed"
+	"errors"
 	"io/fs"
 	"log"
 	"log/slog"
 	"os"
-	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/mattn/go-sqlite3"
@@ -20,7 +20,7 @@ import (
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
 
 	"github.com/ignoxx/caloriemate/ai"
-	// "github.com/ignoxx/caloriemate/ai/clip"
+	"github.com/ignoxx/caloriemate/ai/clip"
 
 	"github.com/ignoxx/caloriemate/ai/openrouter"
 	_ "github.com/ignoxx/caloriemate/migrations"
@@ -54,6 +54,7 @@ var distDir embed.FS
 
 func main() {
 	app := pocketbase.NewWithConfig(pocketbase.Config{
+		// TODO: move this to CLI level
 		DefaultDataDir: "./pb_data",
 		DBConnect: func(dbPath string) (*dbx.DB, error) {
 			db, err := dbx.Open("pb_sqlite3_vec", dbPath)
@@ -85,23 +86,39 @@ func main() {
 		distDirFs, _ = fs.Sub(distDir, "frontend/build")
 	}
 
-	// loosely check if it was executed using "go run"
-	isGoRun := strings.HasPrefix(os.Args[0], os.TempDir())
-
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
 		// enable auto creation of migration files when making collection changes in the Dashboard
 		// (the isGoRun check is to enable it only during development)
-		Automigrate: isGoRun,
+		Automigrate: stage == "dev",
 	})
 
 	var llm ai.Analyzer = openrouter.New()
-	// var imgLlm ai.Embedder = clip.New()
+	var imgLlm ai.Embedder = clip.New()
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		// serves static files from the provided public dir (if exists)
 		se.Router.GET("/{path...}", apis.Static(distDirFs, true))
 
 		return se.Next()
+	})
+
+	app.OnRecordCreateRequest("meal_templates").BindFunc(func(e *core.RecordRequestEvent) error {
+		ri, err := e.RequestInfo()
+		if err != nil {
+			slog.Error("Failed to get request info", "error", err)
+			return errors.New("failed to get request info: " + err.Error())
+		}
+
+		if ri.Auth == nil {
+			slog.Warn("Unauthenticated user tried to create meal template")
+			return errors.New("unauthenticated")
+		}
+
+		slog.Info("Setting meal template user", "userId", ri.Auth.Id, "recordId", e.Record.Id)
+
+		e.Record.Set("user", ri.Auth.Id)
+
+		return e.Next()
 	})
 
 	// Analyze the meal upon successful creation
@@ -120,6 +137,37 @@ func main() {
 		}
 		defer imageFile.Close()
 
+		// get image vector
+		rawEmbedding, err := imgLlm.GenerateEmbeddings(imageFile)
+		if err != nil {
+			slog.Error("Failed to generate image embedding for meal template", "error", err)
+			return e.Next()
+		}
+
+		mealVector, err := sqlite_vec.SerializeFloat32(rawEmbedding)
+		if err != nil {
+			slog.Error("Failed to serialize image embedding for meal template", "error", err)
+			return e.Next()
+		}
+
+		var mealMatches []struct {
+			MealTemplateID string    `db:"meal_template_id"`
+			Embedding      []float32 `db:"embedding"`
+			Distance       float32   `db:"distance"`
+		}
+
+		err = e.App.DB().NewQuery("SELECT * FROM meal_vectors WHERE embedding MATCH {:mealVector} AND and distance <= 0.8 ORDER BY distance LIMIT 5;").Bind(dbx.Params{
+			"embedding": mealVector,
+		}).All(&mealMatches)
+
+		if err != nil {
+			slog.Error("Failed to search for similar meal templates", "error", err)
+			return e.Next() // idk if we should exit here
+		}
+
+		slog.Info("Found similar meal templates", "count", len(mealMatches), "recordId", e.Record.Id)
+		//TODO: if similar matches found, somehow propagate that to the user :shrug:
+
 		output, err := llm.AnalyzeImage(imageFile)
 		if err != nil {
 			slog.Error("Failed to analyze image for meal template", "error", err)
@@ -135,7 +183,7 @@ func main() {
 
 		e.Record.Set("name", meal.Name)
 		e.Record.Set("ai_description", meal.AIDescription)
-		e.Record.Set("description", meal.AnalysisNotes)
+		e.Record.Set("description", meal.UserContext)
 
 		e.Record.Set("total_calories", meal.TotalCalories)
 		e.Record.Set("calorie_uncertainty_percent", meal.CalorieUncertaintyPercent)
@@ -154,28 +202,15 @@ func main() {
 			return e.Next()
 		}
 
-		// now that we created meal, lets get the meals image vector and save it
-		// embedding, err := imgLlm.GenerateEmbeddings(imageFile)
-		// if err != nil {
-		// 	slog.Error("Failed to generate image embedding for meal template", "error", err)
-		// 	return e.Next()
-		// }
+		mealVectors, _ := e.App.FindCollectionByNameOrId("meal_vectors")
+		mealVecRecord := core.NewRecord(mealVectors)
+		mealVecRecord.Set("meal_template_id", e.Record.Id)
+		mealVecRecord.Set("embedding", mealVector)
 
-		// mealVector, err := sqlite_vec.SerializeFloat32(embedding)
-		// if err != nil {
-		// 	slog.Error("Failed to serialize image embedding for meal template", "error", err)
-		// 	return e.Next()
-		// }
-
-		// mealVectors, _ := e.App.FindCollectionByNameOrId("meal_vectors")
-		// mealVecRecord := core.NewRecord(mealVectors)
-		// mealVecRecord.Set("meal_template_id", e.Record.Id)
-		// mealVecRecord.Set("embedding", mealVector)
-
-		// if err := e.App.Save(mealVecRecord); err != nil {
-		// 	slog.Error("Failed to save meal template image embedding", "error", err)
-		// 	return e.Next()
-		// }
+		if err := e.App.Save(mealVecRecord); err != nil {
+			slog.Error("Failed to save meal template image embedding", "error", err)
+			return e.Next()
+		}
 
 		slog.Info("Meal template analysis completed", "recordId", e.Record.Id)
 

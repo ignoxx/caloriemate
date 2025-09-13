@@ -35,14 +35,14 @@ export default function LoginPage({ onSwitchToSignup }: LoginPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 shadow-sm border-b dark:border-gray-800">
+      <div className="bg-card shadow-sm border-b border-border">
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CalorieMate</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Your personal nutrition assistant</p>
+              <h1 className="text-2xl font-bold text-foreground">CalorieMate</h1>
+              <p className="text-sm text-muted-foreground mt-1">Your personal nutrition assistant</p>
             </div>
             <ThemeToggle />
           </div>
@@ -64,8 +64,8 @@ export default function LoginPage({ onSwitchToSignup }: LoginPageProps) {
                   </div>
 
                   {error && (
-                    <div className="bg-red-50 dark:bg-red-900/50 border border-red-200 dark:border-red-800 rounded-md p-3">
-                      <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                    <div className="bg-destructive/15 border border-destructive/50 rounded-md p-3">
+                      <p className="text-sm text-destructive">{error}</p>
                     </div>
                   )}
 
@@ -122,16 +122,16 @@ export default function LoginPage({ onSwitchToSignup }: LoginPageProps) {
                 </div>
               </form>
               <div className="bg-muted relative hidden md:block">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center">
-                  <div className="text-center text-white p-8">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                  <div className="text-center text-primary-foreground p-8">
                     <div className="mb-6">
-                      <div className="w-16 h-16 bg-white/20 rounded-full mx-auto mb-4 flex items-center justify-center">
+                      <div className="w-16 h-16 bg-primary-foreground/20 rounded-full mx-auto mb-4 flex items-center justify-center">
                         <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M12 2L13.09 8.26L20 9L13.09 9.74L12 16L10.91 9.74L4 9L10.91 8.26L12 2Z"/>
                         </svg>
                       </div>
                       <h3 className="text-xl font-semibold mb-2">Track Your Nutrition</h3>
-                      <p className="text-white/80">
+                      <p className="text-primary-foreground/80">
                         Take photos of your meals and get instant nutrition analysis with AI-powered food recognition.
                       </p>
                     </div>

@@ -1,31 +1,11 @@
-
-
-import { Card, CardContent } from "./ui/card"
-import { Badge } from "./ui/badge"
-import { Clock, Edit, Loader2, CheckCircle, AlertCircle } from "lucide-react"
-
-interface MealEntry {
-  id: string;
-  meal_name: string;
-  ai_description: string;
-  total_calories: number;
-  calorie_uncertainty_percent: number;
-  total_protein_g: number;
-  protein_uncertainty_percent: number;
-  total_carbs_g: number;
-  carbs_uncertainty_percent: number;
-  total_fat_g: number;
-  fat_uncertainty_percent: number;
-  analysis_notes: string;
-  imageUrl?: string;
-  processing_status: "pending" | "processing" | "completed" | "failed";
-  created: string;
-  updated: string;
-}
+import { Card, CardContent } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Clock, Edit, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { MealEntry } from "@/types/meal";
 
 interface MealHistoryCardProps {
-  meal: MealEntry
-  onClick?: () => void
+  meal: MealEntry;
+  onClick?: () => void;
 }
 
 export function MealHistoryCard({ meal, onClick }: MealHistoryCardProps) {
@@ -33,43 +13,47 @@ export function MealHistoryCard({ meal, onClick }: MealHistoryCardProps) {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-  })
+  });
 
   const getStatusIcon = () => {
-    switch (meal.processing_status) {
+    switch (meal.processingStatus) {
       case "pending":
       case "processing":
-        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
       case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
       case "failed":
-        return <AlertCircle className="h-4 w-4 text-red-500" />
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
     }
-  }
+  };
 
   const getStatusText = () => {
-    switch (meal.processing_status) {
+    switch (meal.processingStatus) {
       case "pending":
-        return "Queued..."
+        return "Queued...";
       case "processing":
-        return "Analyzing..."
+        return "Analyzing...";
       case "completed":
-        return "Completed"
+        return "Completed";
       case "failed":
-        return "Failed"
+        return "Failed";
     }
-  }
+  };
 
-  const formatNutritionWithUncertainty = (value: number, uncertainty: number, unit: string) => {
+  const formatNutritionWithUncertainty = (
+    value: number,
+    uncertainty: number,
+    unit: string,
+  ) => {
     if (uncertainty > 0) {
       const min = Math.round(value * (1 - uncertainty / 100));
       const max = Math.round(value * (1 + uncertainty / 100));
       return `${min}-${max}${unit}`;
     }
     return `${value}${unit}`;
-  }
+  };
 
-  const isClickable = meal.processing_status === "completed"
+  const isClickable = meal.processingStatus === "completed";
 
   return (
     <Card
@@ -80,16 +64,22 @@ export function MealHistoryCard({ meal, onClick }: MealHistoryCardProps) {
         <div className="flex gap-3">
           {meal.imageUrl && (
             <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-              <img src={meal.imageUrl || "/placeholder.svg"} alt={meal.meal_name} className="w-full h-full object-cover" />
+              <img
+                src={meal.imageUrl || "/placeholder.svg"}
+                alt={meal.name}
+                className="w-full h-full object-cover"
+              />
             </div>
           )}
 
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate pr-2">{meal.meal_name}</h3>
+              <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate pr-2">
+                {meal.name}
+              </h3>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {getStatusIcon()}
-                {meal.processing_status === "completed" && (
+                {meal.processingStatus === "completed" && (
                   <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                     <Edit className="h-4 w-4" />
                   </button>
@@ -97,19 +87,30 @@ export function MealHistoryCard({ meal, onClick }: MealHistoryCardProps) {
               </div>
             </div>
 
-            {meal.processing_status === "pending" || meal.processing_status === "processing" ? (
+            {meal.processingStatus === "pending" ||
+            meal.processingStatus === "processing" ? (
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="outline" className="text-xs">
                   {getStatusText()}
                 </Badge>
               </div>
-            ) : meal.processing_status === "completed" ? (
+            ) : meal.processingStatus === "completed" ? (
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="secondary" className="text-xs">
-                  {formatNutritionWithUncertainty(meal.total_calories, meal.calorie_uncertainty_percent, "")} kcal
+                  {formatNutritionWithUncertainty(
+                    meal.totalCalories,
+                    meal.calorieUncertaintyPercent,
+                    "",
+                  )}{" "}
+                  kcal
                 </Badge>
                 <Badge variant="outline" className="text-xs">
-                  {formatNutritionWithUncertainty(meal.total_protein_g, meal.protein_uncertainty_percent, "g")} protein
+                  {formatNutritionWithUncertainty(
+                    meal.totalProteinG,
+                    meal.proteinUncertaintyPercent,
+                    "g",
+                  )}{" "}
+                  protein
                 </Badge>
               </div>
             ) : (
@@ -125,12 +126,14 @@ export function MealHistoryCard({ meal, onClick }: MealHistoryCardProps) {
               {timeString}
             </div>
 
-            {meal.ai_description && meal.processing_status === "completed" && (
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">{meal.ai_description}</p>
+            {meal.aiDescription && meal.processingStatus === "completed" && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">
+                {meal.aiDescription}
+              </p>
             )}
           </div>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

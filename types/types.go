@@ -1,7 +1,9 @@
 package types
 
 type Meal struct {
+	ID                        string `json:"id,omitempty"`
 	Name                      string `json:"meal_name"`
+	UserContext               string `json:"userContext"`
 	AIDescription             string `json:"ai_description"`
 	TotalCalories             int    `json:"total_calories"`
 	CalorieUncertaintyPercent int    `json:"calorie_uncertainty_percent"`
