@@ -161,28 +161,22 @@ func main() {
 
 		if err != nil {
 			slog.Error("Failed to search for similar meal templates", "error", err)
-			return e.Next() // idk if we should exit here
+			return e.Next() // WARN: idk if we should exit here
 		}
 
 		slog.Info("Found similar meal templates", "count", len(mealMatches), "recordId", e.Record.Id, "data", mealMatches)
 		//TODO: if similar matches found, somehow propagate that to the user :shrug:
 
-		output, err := llm.AnalyzeImage(imageFile)
+		userContext := "" // TODO:
+		meal, err := llm.EstimateNutritions(imageFile, userContext)
 		if err != nil {
 			slog.Error("Failed to analyze image for meal template", "error", err)
 			return e.Next()
 		}
 
-		userContext := e.Record.GetString("description")
-		meal, err := llm.EstimateNutritions(output, userContext)
-		if err != nil {
-			slog.Error("Failed to estimate nutritions for meal template", "error", err)
-			return e.Next()
-		}
-
 		e.Record.Set("name", meal.Name)
 		e.Record.Set("ai_description", meal.AIDescription)
-		e.Record.Set("description", meal.UserContext)
+		// e.Record.Set("analysis_notes", meal.AnalysisNotes)
 
 		e.Record.Set("total_calories", meal.TotalCalories)
 		e.Record.Set("calorie_uncertainty_percent", meal.CalorieUncertaintyPercent)

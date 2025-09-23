@@ -96,9 +96,9 @@ export default function OnboardingPage({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 shadow-sm border-b dark:border-gray-800">
+      <div className="bg-card shadow-sm border-b border-border">
         <div className="max-w-md mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -113,10 +113,10 @@ export default function OnboardingPage({
                 </Button>
               )}
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-foreground">
                   Setup Your Profile
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Step {step} of 3
                 </p>
               </div>
@@ -127,12 +127,12 @@ export default function OnboardingPage({
       </div>
 
       <div className="max-w-md mx-auto px-4 py-6">
-        <Card className="dark:bg-gray-900">
+        <Card className="bg-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {step === 1 && <User className="h-5 w-5 text-blue-600" />}
-              {step === 2 && <Target className="h-5 w-5 text-green-600" />}
-              {step === 3 && <Calculator className="h-5 w-5 text-purple-600" />}
+              {step === 1 && <User className="h-5 w-5 text-primary" />}
+              {step === 2 && <Target className="h-5 w-5 text-primary" />}
+              {step === 3 && <Calculator className="h-5 w-5 text-primary" />}
               {step === 1 && "Tell us about yourself"}
               {step === 2 && "Your goals"}
               {step === 3 && "Set your targets"}
@@ -178,7 +178,7 @@ export default function OnboardingPage({
                 <div className="space-y-2">
                   <Label>Gender</Label>
                   <select
-                    className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                    className="w-full p-2 border border-input rounded-md bg-background text-foreground"
                     value={formData.gender}
                     onChange={(e) =>
                       handleInputChange("gender", e.target.value)
@@ -205,7 +205,7 @@ export default function OnboardingPage({
                 <div className="space-y-2">
                   <Label>Activity Level</Label>
                   <select
-                    className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                    className="w-full p-2 border border-input rounded-md bg-background text-foreground"
                     value={formData.activity}
                     onChange={(e) =>
                       handleInputChange("activity", e.target.value)
@@ -225,7 +225,7 @@ export default function OnboardingPage({
                 <div className="space-y-2">
                   <Label>Goal</Label>
                   <select
-                    className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                    className="w-full p-2 border border-input rounded-md bg-background text-foreground"
                     value={formData.goal}
                     onChange={(e) => handleInputChange("goal", e.target.value)}
                   >
@@ -252,20 +252,20 @@ export default function OnboardingPage({
 
             {step === 3 && (
               <>
-                <div className="bg-blue-50 dark:bg-blue-950/50 p-4 rounded-lg space-y-2">
-                  <h3 className="font-medium text-blue-900 dark:text-blue-100">
+                <div className="bg-secondary/50 p-4 rounded-lg space-y-2">
+                  <h3 className="font-medium text-primary">
                     Calculated Targets
                   </h3>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                  <p className="text-sm text-muted-foreground">
                     Calories: {calculateGoals().calories} kcal/day
                   </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                  <p className="text-sm text-muted-foreground">
                     Protein: {calculateGoals().protein}g/day
                   </p>
                 </div>
 
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     Or set custom targets:
                   </p>
                   <div className="space-y-2">

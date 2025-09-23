@@ -234,7 +234,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                     id="customProtein"
                     type="number"
                     placeholder={calculateGoals().protein.toString()}
-                    value={formData.customCalories}
+                    value={formData.customProtein}
                     onChange={(e) =>
                       handleInputChange("customProtein", e.target.value)
                     }

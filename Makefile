@@ -1,7 +1,13 @@
+SHELL := /bin/bash
+
 run:
 	@go run . serve --http=0.0.0.0:8090
 
-SHELL := /bin/bash
+fe:
+	@pushd ./frontend && npm run dev && popd
+
+setup-su:
+	@go run . superuser upsert test@test.com test12345
 
 # CLIP Service - One command to rule them all
 clip-run:

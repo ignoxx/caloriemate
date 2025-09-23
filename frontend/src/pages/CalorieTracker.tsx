@@ -35,7 +35,6 @@ export default function CalorieTracker() {
   const [showProfile, setShowProfile] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const additionInformation = useRef<HTMLTextAreaElement>(null);
   const hasLoadedMealsRef = useRef(false);
   const hasLoadedProfileRef = useRef(false);
   const { user } = useAuth();
@@ -160,11 +159,52 @@ export default function CalorieTracker() {
     try {
       if (!user) throw new Error("No user found");
 
+      // Calculate default values using the same logic as onboarding components
+      const calculateGoals = () => {
+        const age = data.age;
+        const weight = data.weight;
+        const height = data.height;
+
+        // Simple BMR calculation (Mifflin-St Jeor)
+        let bmr: number;
+        if (data.gender === "male") {
+          bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+        } else {
+          bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+        }
+
+        // Activity multiplier
+        const activityMultipliers = {
+          sedentary: 1.2,
+          light: 1.375,
+          moderate: 1.55,
+          active: 1.725,
+          "very active": 1.9,
+        };
+
+        const tdee = bmr * activityMultipliers[data.activityLevel as keyof typeof activityMultipliers];
+
+        // Goal adjustment
+        let calories = tdee;
+        if (data.goal === "lose_weight") calories -= 500;
+        if (data.goal === "gain_weight" || data.goal === "gain_muscle") calories += 500;
+
+        // Protein: 1.6-2.2g per kg body weight
+        const protein = Math.round(weight * 1.8);
+
+        return {
+          calories: Math.round(calories),
+          protein,
+        };
+      };
+
+      const calculatedGoals = calculateGoals();
+
       // Create user profile in database
       const profileData = {
         user: user.id,
-        target_calories: data.customCalories || 2000,
-        target_protein_g: data.customProtein || 150,
+        target_calories: data.customCalories || calculatedGoals.calories,
+        target_protein_g: data.customProtein || calculatedGoals.protein,
         weight_kg: data.weight,
         age: data.age,
         height_cm: data.height,
@@ -177,8 +217,8 @@ export default function CalorieTracker() {
 
       // Convert to UserGoals format for local state
       const goals: UserGoals = {
-        target_calories: data.customCalories || 2000,
-        target_protein_g: data.customProtein || 150,
+        target_calories: data.customCalories || calculatedGoals.calories,
+        target_protein_g: data.customProtein || calculatedGoals.protein,
         weight: data.weight, // Note: this maps to weight_kg in DB
         age: data.age,
       };
@@ -218,8 +258,8 @@ export default function CalorieTracker() {
     try {
       await pb.collection("meal_templates").create({
         image: selectedImage,
-        processingStatus: "pending",
-        userContext: mealDescription || "",
+        processing_status: "pending",
+        description: mealDescription || "",
       });
 
       setSelectedImage(null);

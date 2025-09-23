@@ -31,11 +31,11 @@ func New() *Client {
 	return &Client{client}
 }
 
-func (c *Client) AnalyzeImage(image io.ReadSeeker) (string, error) {
+func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (types.Meal, error) {
 	ctx := context.Background()
 
 	if _, err := image.Seek(0, io.SeekStart); err != nil {
-		return "", errors.New("image seek to start failed with: " + err.Error())
+		return types.Meal{}, errors.New("image seek to start failed with: " + err.Error())
 	}
 
 	var imgBuf bytes.Buffer
@@ -45,15 +45,23 @@ func (c *Client) AnalyzeImage(image io.ReadSeeker) (string, error) {
 	defer enc.Close()
 
 	if _, err := io.Copy(enc, image); err != nil {
-		return "", errors.New("image copy to buffer failed with: " + err.Error())
+		return types.Meal{}, errors.New("image copy to buffer failed with: " + err.Error())
 	}
 
-	if err := ai.STAGE_A_PROMPT.Execute(&promptBuf, nil); err != nil {
-		return "", errors.New("stage a prompt execute failed with: " + err.Error())
+	type input struct {
+		UserContext string
+	}
+
+	if err := ai.STAGE_SINGLE_PROMPT.Execute(&promptBuf, input{UserContext: userContext}); err != nil {
+		return types.Meal{}, errors.New("single stage prompt execute failed with: " + err.Error())
 	}
 
 	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
-		Model: "qwen/qwen2.5-vl-72b-instruct",
+		Model: "google/gemini-2.5-flash",
+		// Temperature: 0.2,
+		Reasoning: &openrouter.ChatCompletionReasoning{
+			Effort: utils.ToPtr("low"),
+		},
 		Messages: []openrouter.ChatCompletionMessage{
 			{
 				Role: "user",
@@ -76,45 +84,6 @@ func (c *Client) AnalyzeImage(image io.ReadSeeker) (string, error) {
 	})
 
 	if err != nil {
-		return "", errors.New("chat completion request failed with: " + err.Error())
-	}
-
-	if len(resp.Choices) > 0 {
-		return resp.Choices[0].Message.Content.Text, nil
-	}
-
-	return "", nil
-}
-
-func (c *Client) EstimateNutritions(analyzerOutput, userContext string) (types.Meal, error) {
-	var buf bytes.Buffer
-
-	type input struct {
-		ImageDescription string
-		UserContext      string
-	}
-
-	err := ai.STAGE_B_PROMPT.Execute(&buf, input{
-		ImageDescription: analyzerOutput,
-		UserContext:      userContext,
-	})
-
-	if err != nil {
-		return types.Meal{}, errors.New("stage b prompt execute failed with: " + err.Error())
-	}
-
-	ctx := context.Background()
-	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
-		Model: "google/gemini-2.5-flash-lite",
-		Reasoning: &openrouter.ChatCompletionReasoning{
-			Effort: utils.ToPtr("low"),
-		},
-		Messages: []openrouter.ChatCompletionMessage{
-			openrouter.SystemMessage(buf.String()),
-		},
-	})
-
-	if err != nil {
 		return types.Meal{}, errors.New("chat completion request failed with: " + err.Error())
 	}
 
@@ -127,7 +96,7 @@ func (c *Client) EstimateNutritions(analyzerOutput, userContext string) (types.M
 		return meal, nil
 	}
 
-	return types.Meal{}, nil
+	return types.Meal{}, errors.New("no choices in response")
 }
 
 func (c *Client) validateJSON(s string) (types.Meal, error) {
