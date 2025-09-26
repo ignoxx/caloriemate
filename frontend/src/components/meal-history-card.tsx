@@ -82,7 +82,7 @@ export function MealHistoryCard({ meal, onClick }: MealHistoryCardProps) {
 
   return (
     <Card
-      className={`transition-shadow ${isClickable ? "hover:shadow-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800" : ""}`}
+      className={`transition-shadow ${isClickable ? "hover:shadow-md cursor-pointer hover:bg-accent/50" : ""}`}
       onClick={isClickable ? onClick : undefined}
     >
       <CardContent className="p-4">

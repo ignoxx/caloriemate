@@ -150,16 +150,11 @@ export function MealReviewModal({
             <h3 className="font-medium text-foreground">
               AI Analysis:
             </h3>
-            <Card className="bg-gray-50 dark:bg-gray-800">
+            <Card className="bg-accent/30">
               <CardContent className="p-3">
                 <h4 className="font-medium text-sm dark:text-white mb-2">
                   {meal.name}
                 </h4>
-                {meal.aiDescription && (
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {meal.aiDescription}
-                  </p>
-                )}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-muted-foreground">Calories:</span>
@@ -220,9 +215,9 @@ export function MealReviewModal({
               </h3>
               <div className="space-y-2">
                 {similarMeals.slice(0, 3).map((similarMeal) => (
-                  <Card 
+                  <Card
                     key={similarMeal.id}
-                    className="cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 border-dashed"
+                    className="cursor-pointer transition-colors hover:bg-accent/50 border-dashed"
                   >
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">
@@ -263,7 +258,7 @@ export function MealReviewModal({
             className={`cursor-pointer transition-colors ${
               showCustomForm
                 ? "ring-2 ring-primary bg-primary/10"
-                : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                : "hover:bg-accent/50"
             }`}
             onClick={() => setShowCustomForm(!showCustomForm)}
           >
