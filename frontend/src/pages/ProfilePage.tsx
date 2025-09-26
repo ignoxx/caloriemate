@@ -71,10 +71,10 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
           goal: userProfile.goal || 'maintain',
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load user profile:", error);
       // Only show error if request wasn't canceled
-      if (!error?.isAbort && error?.message !== 'fetch aborted') {
+      if (error instanceof Error && !error.message.includes('aborted')) {
         setError("Failed to load profile data");
       }
     } finally {
@@ -118,8 +118,8 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
       }
 
       setSuccess("Profile updated successfully!");
-    } catch (error: any) {
-      setError(error?.message || "Failed to save profile");
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Failed to save profile");
     } finally {
       setIsSaving(false);
     }

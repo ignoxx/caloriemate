@@ -2,15 +2,28 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "./ui/drawer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { User, Target, Calculator } from "lucide-react";
 import { OnboardingData, OnboardingFormData } from "../types/common";
 
 interface OnboardingModalProps {
+  open: boolean;
   onComplete: (data: OnboardingData) => void;
 }
 
-export function OnboardingModal({ onComplete }: OnboardingModalProps) {
+export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<OnboardingFormData>({
     age: "",
@@ -41,7 +54,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
       light: 1.375,
       moderate: 1.55,
       active: 1.725,
-      very_active: 1.9,
+      "very active": 1.9,
     };
 
     const tdee =
@@ -86,19 +99,19 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {step === 1 && <User className="h-5 w-5 text-primary" />}
-              {step === 2 && <Target className="h-5 w-5 text-primary" />}
-              {step === 3 && <Calculator className="h-5 w-5 text-primary" />}
+    <Drawer open={open} onOpenChange={() => {}}>
+      <DrawerContent className="max-h-[95vh] md:max-h-[90vh]">
+        <DrawerHeader>
+          <DrawerTitle className="flex items-center gap-2">
+            {step === 1 && <User className="h-5 w-5 text-primary" />}
+            {step === 2 && <Target className="h-5 w-5 text-primary" />}
+            {step === 3 && <Calculator className="h-5 w-5 text-primary" />}
             {step === 1 && "Tell us about yourself"}
             {step === 2 && "Your goals"}
             {step === 3 && "Set your targets"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </DrawerTitle>
+        </DrawerHeader>
+        <div className="px-4 space-y-4 overflow-y-auto flex-1">
           {step === 1 && (
             <>
               <div className="space-y-2">
@@ -133,15 +146,19 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
               </div>
               <div className="space-y-2">
                 <Label>Gender</Label>
-                <select
-                  className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                <Select
                   value={formData.gender}
-                  onChange={(e) => handleInputChange("gender", e.target.value)}
+                  onValueChange={(value) => handleInputChange("gender", value)}
                 >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <Button
                 onClick={() => setStep(2)}
@@ -157,33 +174,39 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
             <>
               <div className="space-y-2">
                 <Label>Activity Level</Label>
-                <select
-                  className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                <Select
                   value={formData.activity}
-                  onChange={(e) =>
-                    handleInputChange("activity", e.target.value)
-                  }
+                  onValueChange={(value) => handleInputChange("activity", value)}
                 >
-                  <option value="sedentary">Sedentary (desk job)</option>
-                  <option value="light">Light exercise (1-3 days/week)</option>
-                  <option value="moderate">
-                    Moderate exercise (3-5 days/week)
-                  </option>
-                  <option value="active">Active (6-7 days/week)</option>
-                  <option value="very_active">Very active (2x/day)</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select activity level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sedentary">Sedentary (desk job)</SelectItem>
+                    <SelectItem value="light">Light exercise (1-3 days/week)</SelectItem>
+                    <SelectItem value="moderate">
+                      Moderate exercise (3-5 days/week)
+                    </SelectItem>
+                    <SelectItem value="active">Active (6-7 days/week)</SelectItem>
+                    <SelectItem value="very active">Very active (2x/day)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Goal</Label>
-                <select
-                  className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                <Select
                   value={formData.goal}
-                  onChange={(e) => handleInputChange("goal", e.target.value)}
+                  onValueChange={(value) => handleInputChange("goal", value)}
                 >
-                  <option value="lose">Lose weight</option>
-                  <option value="maintain">Maintain weight</option>
-                  <option value="gain">Gain weight</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select goal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lose_weight">Lose weight</SelectItem>
+                    <SelectItem value="maintain">Maintain weight</SelectItem>
+                    <SelectItem value="gain_weight">Gain weight</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -256,8 +279,8 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }

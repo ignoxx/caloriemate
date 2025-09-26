@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent } from "./ui/card";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerFooter,
+  DrawerClose,
+} from "./ui/drawer";
 
-import { X, CheckCircle, Plus } from "lucide-react";
+import { X, CheckCircle, Plus, Repeat } from "lucide-react";
 import { MealEntry } from "@/types/common";
+import { SimilarMeal } from "@/types/meal";
+import { fetchSimilarMeals } from "@/lib/pocketbase";
 
 // interface MealEntry {
 //   id: string;
@@ -29,13 +39,17 @@ import { MealEntry } from "@/types/common";
 
 interface MealReviewModalProps {
   meal: MealEntry;
+  open: boolean;
   onMealConfirmed: (meal: MealEntry) => void;
+  onSimilarMealSelected: (similarMeal: SimilarMeal) => void;
   onClose: () => void;
 }
 
 export function MealReviewModal({
   meal,
+  open,
   onMealConfirmed,
+  onSimilarMealSelected,
   onClose,
 }: MealReviewModalProps) {
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -49,6 +63,27 @@ export function MealReviewModal({
   const [customCarbs, setCustomCarbs] = useState(meal.totalCarbsG.toString());
   const [customFat, setCustomFat] = useState(meal.totalFatG.toString());
   const [description, setDescription] = useState(meal.aiDescription);
+  const [similarMeals, setSimilarMeals] = useState<SimilarMeal[]>([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(true);
+
+  useEffect(() => {
+    const loadSimilarMeals = async () => {
+      try {
+        const similar = await fetchSimilarMeals(meal.id);
+        setSimilarMeals(similar);
+      } catch (error) {
+        console.error("Failed to load similar meals:", error);
+      } finally {
+        setLoadingSimilar(false);
+      }
+    };
+
+    loadSimilarMeals();
+  }, [meal.id]);
+
+  const handleSimilarMealClick = (similarMeal: SimilarMeal) => {
+    onSimilarMealSelected(similarMeal);
+  };
 
   const handleConfirmMeal = () => {
     const confirmedMeal: MealEntry = {
@@ -85,19 +120,21 @@ export function MealReviewModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 md:items-center">
-      <Card className="w-full max-w-md max-h-[95vh] rounded-t-xl md:rounded-xl md:max-h-[90vh] md:m-4 flex flex-col dark:bg-gray-900">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-          <CardTitle className="flex items-center gap-2">
+    <Drawer open={open} onOpenChange={onClose}>
+      <DrawerContent className="max-h-[95vh] md:max-h-[90vh]">
+        <DrawerHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <DrawerTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
             Review Your Meal
-          </CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </CardHeader>
+          </DrawerTitle>
+          <DrawerClose asChild>
+            <Button variant="ghost" size="sm">
+              <X className="h-4 w-4" />
+            </Button>
+          </DrawerClose>
+        </DrawerHeader>
 
-        <CardContent className="space-y-4 overflow-y-auto flex-1 pb-6">
+        <div className="px-4 space-y-4 overflow-y-auto flex-1 pb-6">
           {/* Captured Image */}
           <div className="aspect-square w-full max-w-48 mx-auto rounded-lg overflow-hidden bg-gray-100">
             <img
@@ -109,7 +146,7 @@ export function MealReviewModal({
 
           {/* AI Analysis Results */}
           <div className="space-y-3">
-            <h3 className="font-medium text-gray-900 dark:text-white">
+            <h3 className="font-medium text-foreground">
               AI Analysis:
             </h3>
             <Card className="bg-gray-50 dark:bg-gray-800">
@@ -118,13 +155,13 @@ export function MealReviewModal({
                   {meal.name}
                 </h4>
                 {meal.aiDescription && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  <p className="text-sm text-muted-foreground mb-3">
                     {meal.aiDescription}
                   </p>
                 )}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-gray-500">Calories:</span>
+                    <span className="text-muted-foreground">Calories:</span>
                     <span className="ml-1 font-medium">
                       {formatNutritionWithUncertainty(
                         meal.totalCalories,
@@ -134,7 +171,7 @@ export function MealReviewModal({
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Protein:</span>
+                    <span className="text-muted-foreground">Protein:</span>
                     <span className="ml-1 font-medium">
                       {formatNutritionWithUncertainty(
                         meal.totalProteinG,
@@ -144,7 +181,7 @@ export function MealReviewModal({
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Carbs:</span>
+                    <span className="text-muted-foreground">Carbs:</span>
                     <span className="ml-1 font-medium">
                       {formatNutritionWithUncertainty(
                         meal.totalCarbsG,
@@ -154,7 +191,7 @@ export function MealReviewModal({
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Fat:</span>
+                    <span className="text-muted-foreground">Fat:</span>
                     <span className="ml-1 font-medium">
                       {formatNutritionWithUncertainty(
                         meal.totalFatG,
@@ -165,7 +202,7 @@ export function MealReviewModal({
                   </div>
                 </div>
                 {meal.aiDescription && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     {meal.aiDescription}
                   </p>
                 )}
@@ -173,23 +210,70 @@ export function MealReviewModal({
             </Card>
           </div>
 
+          {/* Similar Meals Section */}
+          {!loadingSimilar && similarMeals.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="font-medium text-foreground flex items-center gap-2">
+                <Repeat className="h-4 w-4" />
+                Similar meals you've had before:
+              </h3>
+              <div className="space-y-2">
+                {similarMeals.slice(0, 3).map((similarMeal) => (
+                  <Card 
+                    key={similarMeal.id}
+                    className="cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 border-dashed"
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-sm dark:text-white">
+                              {similarMeal.name}
+                            </h4>
+                            <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+                              {Math.round((1 - similarMeal.distance) * 100)}% match
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2 text-xs text-gray-600 dark:text-gray-400">
+                            <span>{similarMeal.total_calories} cal</span>
+                            <span>{similarMeal.total_protein_g}g protein</span>
+                            <span>{similarMeal.total_carbs_g}g carbs</span>
+                            <span>{similarMeal.total_fat_g}g fat</span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSimilarMealClick(similarMeal)}
+                          className="ml-3"
+                        >
+                          Use This
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Edit Option */}
           <Card
             className={`cursor-pointer transition-colors ${
               showCustomForm
-                ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/50"
+                ? "ring-2 ring-primary bg-primary/10"
                 : "hover:bg-gray-50 dark:hover:bg-gray-800"
             }`}
             onClick={() => setShowCustomForm(!showCustomForm)}
           >
             <CardContent className="p-3">
               <div className="flex items-center gap-2">
-                <Plus className="h-4 w-4 text-blue-600" />
+                <Plus className="h-4 w-4 text-primary" />
                 <span className="font-medium text-sm dark:text-white">
                   {showCustomForm ? "Use AI analysis" : "Edit meal details"}
                 </span>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {showCustomForm
                   ? "Accept the AI analysis as is"
                   : "Modify the meal name and nutrition values"}
@@ -268,15 +352,14 @@ export function MealReviewModal({
               </div>
             </div>
           )}
-        </CardContent>
+        </div>
 
-        {/* Fixed bottom button */}
-        <div className="p-4 border-t bg-white dark:bg-gray-900 dark:border-gray-700 rounded-b-xl">
+        <DrawerFooter className="border-t">
           <Button onClick={handleConfirmMeal} className="w-full" size="lg">
             Confirm Meal
           </Button>
-        </div>
-      </Card>
-    </div>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   );
 }

@@ -9,6 +9,9 @@ fe:
 setup-su:
 	@go run . superuser upsert test@test.com test12345
 
+fe-pb-types:
+	@npx pocketbase-typegen --url http://localhost:8090 --email test@test.com --password 'test12345' --out frontend/src/types/pocketbase-types.ts
+
 # CLIP Service - One command to rule them all
 clip-run:
 	@echo "🚀 Starting CLIP Embedding Service..."

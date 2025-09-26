@@ -27,8 +27,8 @@ export default function LoginPage({ onSwitchToSignup }: LoginPageProps) {
 
     try {
       await login(email, password)
-    } catch (error: any) {
-      setError(error?.message || 'Login failed. Please check your credentials.')
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Login failed. Please check your credentials.')
     } finally {
       setIsLoading(false)
     }

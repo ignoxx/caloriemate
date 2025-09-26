@@ -1,5 +1,13 @@
 // Central types file for shared interfaces across the application
 
+// PocketBase record interface
+export interface PBRecord {
+  id: string;
+  created: string;
+  updated: string;
+  [key: string]: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+}
+
 export interface UserGoals {
   target_calories: number
   target_protein_g: number
@@ -58,6 +66,7 @@ export interface SignupData {
 
 export interface MealEntry {
   id: string;
+  mealTemplateId?: string; // ID of the referenced meal_templates record
   name: string;
   userContext: string;
   aiDescription: string;

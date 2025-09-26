@@ -19,6 +19,7 @@ import { MealHistoryCard } from "../components/meal-history-card";
 import { useAuth } from "../contexts/AuthContext";
 import ProfilePage from "./ProfilePage";
 import { UserGoals, MealEntry, OnboardingData } from "../types/common";
+import { SimilarMeal } from "../types/meal";
 
 import pb from "../lib/pocketbase";
 
@@ -59,12 +60,17 @@ export default function CalorieTracker() {
       if (!user) return;
 
       setIsLoadingProfile(true);
+      console.log("Loading user profile for user:", user.id);
+      
       const records = await pb.collection("user_profiles").getList(1, 1, {
         filter: `user = "${user.id}"`,
       });
 
+      console.log("User profile query result:", records);
+
       if (records.items.length > 0) {
         const profile = records.items[0];
+        console.log("Found user profile:", profile);
         const goals: UserGoals = {
           target_calories: profile.target_calories || 2000,
           target_protein_g: profile.target_protein_g || 150,
@@ -73,8 +79,10 @@ export default function CalorieTracker() {
         };
         setUserGoals(goals);
         setIsOnboarded(true);
+        console.log("User is onboarded, setting goals:", goals);
       } else {
         // No profile found - user needs onboarding
+        console.log("No user profile found - showing onboarding");
         setIsOnboarded(false);
       }
     } catch (error) {
@@ -91,28 +99,35 @@ export default function CalorieTracker() {
       const records = await pb.collection("meal_history").getList(1, 50, {
         sort: "-created",
         created: `>${new Date(new Date().setHours(0, 0, 0, 0)).toISOString()}`,
+        expand: "meal", // Expand the meal relation to get nutrition data
       });
 
-      const meals = records.items.map((record: Record<string, any>) => ({
-        id: record.id,
-        name: record.name,
-        userContext: record.userContext || "",
-        aiDescription: record.aiDescription || "",
-        totalCalories: record.totalCalories || 0,
-        calorieUncertaintyPercent: record.calorieUncertaintyPercent || 0,
-        totalProteinG: record.totalProteinG || 0,
-        proteinUncertaintyPercent: record.proteinUncertaintyPercent || 0,
-        totalCarbsG: record.totalCarbsG || 0,
-        carbsUncertaintyPercent: record.carbsUncertaintyPercent || 0,
-        totalFatG: record.totalFatG || 0,
-        fatUncertaintyPercent: record.fatUncertaintyPercent || 0,
-        imageUrl: record.image
-          ? pb.files.getURL(record, record.image)
-          : undefined,
-        processingStatus: record.processingStatus || "pending",
-        created: record.created,
-        updated: record.updated,
-      }));
+      const meals: MealEntry[] = records.items.map((record) => {
+        const recordData = record as Record<string, unknown>;
+        const expandData = recordData.expand as Record<string, unknown>;
+        const mealTemplate = expandData?.meal as Record<string, unknown>;
+        const portionMultiplier = (recordData.portion_multiplier as number) || 1.0;
+        
+        return {
+          id: record.id,
+          mealTemplateId: (mealTemplate?.id as string) || "",
+          name: (mealTemplate?.name as string) || "Unknown Meal",
+          userContext: (mealTemplate?.description as string) || "",
+          aiDescription: (mealTemplate?.ai_description as string) || "",
+          totalCalories: Math.round(((mealTemplate?.total_calories as number) || 0) * portionMultiplier + ((recordData.calorie_adjustment as number) || 0)),
+          calorieUncertaintyPercent: (mealTemplate?.calorie_uncertainty_percent as number) || 0,
+          totalProteinG: Math.round(((mealTemplate?.total_protein_g as number) || 0) * portionMultiplier + ((recordData.protein_adjustment as number) || 0)),
+          proteinUncertaintyPercent: (mealTemplate?.protein_uncertainty_percent as number) || 0,
+          totalCarbsG: Math.round(((mealTemplate?.total_carbs_g as number) || 0) * portionMultiplier + ((recordData.carb_adjustment as number) || 0)),
+          carbsUncertaintyPercent: (mealTemplate?.carbs_uncertainty_percent as number) || 0,
+          totalFatG: Math.round(((mealTemplate?.total_fat_g as number) || 0) * portionMultiplier + ((recordData.fat_adjustment as number) || 0)),
+          fatUncertaintyPercent: (mealTemplate?.fat_uncertainty_percent as number) || 0,
+          imageUrl: mealTemplate?.image ? `${pb.baseURL}/api/files/meal_templates/${mealTemplate.id}/${mealTemplate.image}` : undefined,
+          processingStatus: ((mealTemplate?.processing_status as string) || "pending") as "pending" | "processing" | "completed" | "failed",
+          created: record.created,
+          updated: record.updated,
+        };
+      });
 
       setMealHistory(meals);
 
@@ -158,6 +173,8 @@ export default function CalorieTracker() {
   const handleOnboardingComplete = async (data: OnboardingData) => {
     try {
       if (!user) throw new Error("No user found");
+
+      console.log("Completing onboarding with data:", data);
 
       // Calculate default values using the same logic as onboarding components
       const calculateGoals = () => {
@@ -213,7 +230,11 @@ export default function CalorieTracker() {
         goal: data.goal,
       };
 
+      console.log("Creating profile data:", profileData);
+
       await pb.collection("user_profiles").create(profileData);
+
+      console.log("Profile created successfully");
 
       // Convert to UserGoals format for local state
       const goals: UserGoals = {
@@ -246,10 +267,6 @@ export default function CalorieTracker() {
     if (file) {
       setSelectedImage(file);
     }
-  };
-
-  const handleImageCaptured = async (imageFile: File) => {
-    setSelectedImage(imageFile);
   };
 
   const handleMealSubmission = async () => {
@@ -294,6 +311,28 @@ export default function CalorieTracker() {
     setSelectedMeal(null);
   };
 
+  const handleSimilarMealSelected = async (similarMeal: SimilarMeal) => {
+    try {
+      // Create new meal history record that references the meal template
+      const newMealRecord = await pb.collection("meal_history").create({
+        meal: similarMeal.id, // Reference to the meal_templates record
+        user: pb.authStore.model?.id,
+        portion_multiplier: 1.0, // Default to 1x portion
+        adjustments: `Selected from similar meal: ${similarMeal.name}`,
+      });
+
+      console.log("Created meal history from similar meal:", newMealRecord);
+
+      // Refresh meal history
+      await loadMealHistory();
+    } catch (error) {
+      console.error("Error creating meal from similar meal:", error);
+    }
+
+    setShowMealReview(false);
+    setSelectedMeal(null);
+  };
+
   if (isLoadingProfile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -306,7 +345,7 @@ export default function CalorieTracker() {
   }
 
   if (!isOnboarded) {
-    return <OnboardingModal onComplete={handleOnboardingComplete} />;
+    return <OnboardingModal open={true} onComplete={handleOnboardingComplete} />;
   }
 
   if (showProfile) {
@@ -520,10 +559,12 @@ export default function CalorieTracker() {
       />
 
       {/* Meal Review Modal */}
-      {showMealReview && selectedMeal && (
+      {selectedMeal && (
         <MealReviewModal
           meal={selectedMeal}
+          open={showMealReview}
           onMealConfirmed={handleMealConfirmed}
+          onSimilarMealSelected={handleSimilarMealSelected}
           onClose={() => {
             setShowMealReview(false);
             setSelectedMeal(null);

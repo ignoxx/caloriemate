@@ -104,7 +104,7 @@ export function FoodRecognitionModal({
       <Card className="w-full max-w-md max-h-[95vh] rounded-t-xl md:rounded-xl md:max-h-[90vh] md:m-4 flex flex-col dark:bg-gray-900">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5 text-blue-600" />
+            <Search className="h-5 w-5 text-primary" />
             Food Recognition
           </CardTitle>
           <Button variant="ghost" size="sm" onClick={onClose}>

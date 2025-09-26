@@ -1,5 +1,6 @@
 export interface MealEntry {
   id: string;
+  mealTemplateId?: string;
   name: string;
   userContext: string;
   aiDescription: string;
@@ -15,4 +16,17 @@ export interface MealEntry {
   processingStatus: "pending" | "processing" | "completed" | "failed";
   created: string;
   updated: string;
+}
+
+export interface SimilarMeal {
+  id: string;
+  name: string;
+  distance: number;
+  total_calories: number;
+  total_protein_g: number;
+  total_carbs_g: number;
+  total_fat_g: number;
+  ai_description: string;
+  image_url?: string;
+  created: string;
 }

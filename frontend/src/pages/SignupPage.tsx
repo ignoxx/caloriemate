@@ -8,7 +8,7 @@ import { ThemeToggle } from "../components/theme-toggle";
 import OnboardingPage from "./OnboardingPage";
 import { useAuth } from "../contexts/AuthContext";
 import { cn } from "../lib/utils";
-import { OnboardingData, UserGoals } from "../types/common";
+import { OnboardingData, UserGoals, SignupData } from "../types/common";
 
 interface SignupPageProps {
   onSwitchToLogin?: () => void;
@@ -24,7 +24,7 @@ export default function SignupPage({ onSwitchToLogin }: SignupPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [signupData, setSignupData] = useState<any>(null);
+  const [signupData, setSignupData] = useState<SignupData | null>(null);
 
   const { signup } = useAuth();
 
@@ -85,8 +85,8 @@ export default function SignupPage({ onSwitchToLogin }: SignupPageProps) {
         onboardingData: data,
         userGoals: goals,
       });
-    } catch (error: any) {
-      setError(error?.message || "Signup failed. Please try again.");
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Signup failed. Please try again.");
       setShowOnboarding(false);
     } finally {
       setIsLoading(false);
