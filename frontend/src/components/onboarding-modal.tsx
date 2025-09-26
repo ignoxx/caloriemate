@@ -17,6 +17,11 @@ import {
 } from "./ui/select";
 import { User, Target, Calculator } from "lucide-react";
 import { OnboardingData, OnboardingFormData } from "../types/common";
+import { 
+  UserProfilesGenderOptions, 
+  UserProfilesActivityLevelOptions, 
+  UserProfilesGoalOptions 
+} from "../types/pocketbase-types";
 
 interface OnboardingModalProps {
   open: boolean;
@@ -29,9 +34,9 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     age: "",
     weight: "",
     height: "",
-    gender: "male",
-    activity: "sedentary",
-    goal: "lose_weight",
+    gender: UserProfilesGenderOptions.male,
+    activity: UserProfilesActivityLevelOptions.sedentary,
+    goal: UserProfilesGoalOptions.lose_weight,
     customProtein: "",
     customCalories: "",
   });

@@ -20,6 +20,7 @@ import { useAuth } from "../contexts/AuthContext";
 import ProfilePage from "./ProfilePage";
 import { UserGoals, MealEntry, OnboardingData } from "../types/common";
 import { SimilarMeal } from "../types/meal";
+import { MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 
 import pb from "../lib/pocketbase";
 
@@ -123,7 +124,7 @@ export default function CalorieTracker() {
           totalFatG: Math.round(((mealTemplate?.total_fat_g as number) || 0) * portionMultiplier + ((recordData.fat_adjustment as number) || 0)),
           fatUncertaintyPercent: (mealTemplate?.fat_uncertainty_percent as number) || 0,
           imageUrl: mealTemplate?.image ? `${pb.baseURL}/api/files/meal_templates/${mealTemplate.id}/${mealTemplate.image}` : undefined,
-          processingStatus: ((mealTemplate?.processing_status as string) || "pending") as "pending" | "processing" | "completed" | "failed",
+          processingStatus: ((mealTemplate?.processing_status as string) || "pending") as MealTemplatesProcessingStatusOptions,
           created: record.created,
           updated: record.updated,
         };

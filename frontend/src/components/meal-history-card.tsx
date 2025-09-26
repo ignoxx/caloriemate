@@ -1,9 +1,9 @@
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Clock, Edit, Loader2, CheckCircle, AlertCircle, Repeat } from "lucide-react";
-import { MealEntry } from "@/types/meal";
+import { MealEntry } from "../types/meal";
 import { useState, useEffect } from "react";
-import { fetchSimilarMeals } from "@/lib/pocketbase";
+import { fetchSimilarMeals } from "../lib/pocketbase";
 
 interface MealHistoryCardProps {
   meal: MealEntry;

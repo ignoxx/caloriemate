@@ -11,6 +11,11 @@ import {
 import { User, Target, Calculator, ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "../components/theme-toggle";
 import { OnboardingData, OnboardingFormData } from "../types/common";
+import { 
+  UserProfilesGenderOptions, 
+  UserProfilesActivityLevelOptions, 
+  UserProfilesGoalOptions 
+} from "../types/pocketbase-types";
 
 interface OnboardingPageProps {
   onComplete: (data: OnboardingData) => void;
@@ -26,9 +31,9 @@ export default function OnboardingPage({
     age: "",
     weight: "",
     height: "",
-    gender: "male",
-    activity: "moderate",
-    goal: "maintain",
+    gender: UserProfilesGenderOptions.male,
+    activity: UserProfilesActivityLevelOptions.moderate,
+    goal: UserProfilesGoalOptions.maintain,
     customCalories: "",
     customProtein: "",
   });

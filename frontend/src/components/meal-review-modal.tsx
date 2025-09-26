@@ -14,9 +14,10 @@ import {
 } from "./ui/drawer";
 
 import { X, CheckCircle, Plus, Repeat } from "lucide-react";
-import { MealEntry } from "@/types/common";
-import { SimilarMeal } from "@/types/meal";
-import { fetchSimilarMeals } from "@/lib/pocketbase";
+import { MealEntry } from "../types/common";
+import { SimilarMeal } from "../types/meal";
+import { MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
+import { fetchSimilarMeals } from "../lib/pocketbase";
 
 // interface MealEntry {
 //   id: string;
@@ -100,7 +101,7 @@ export function MealReviewModal({
         : meal.totalCarbsG,
       totalFatG: showCustomForm ? parseInt(customFat) : meal.totalFatG,
       aiDescription: description,
-      processingStatus: "completed" as const,
+      processingStatus: MealTemplatesProcessingStatusOptions.completed,
     };
 
     onMealConfirmed(confirmedMeal);

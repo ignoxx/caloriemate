@@ -1,3 +1,5 @@
+import { MealTemplatesProcessingStatusOptions } from './pocketbase-types';
+
 export interface MealEntry {
   id: string;
   mealTemplateId?: string;
@@ -13,7 +15,7 @@ export interface MealEntry {
   totalFatG: number;
   fatUncertaintyPercent: number;
   imageUrl?: string;
-  processingStatus: "pending" | "processing" | "completed" | "failed";
+  processingStatus: MealTemplatesProcessingStatusOptions;
   created: string;
   updated: string;
 }

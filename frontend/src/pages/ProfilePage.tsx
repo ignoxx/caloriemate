@@ -12,21 +12,26 @@ import { Label } from "../components/ui/label";
 import { ThemeToggle } from "../components/theme-toggle";
 import { useAuth } from "../contexts/AuthContext";
 import { UserProfile } from "../types/common";
+import { 
+  UserProfilesGenderOptions, 
+  UserProfilesActivityLevelOptions, 
+  UserProfilesGoalOptions 
+} from "../types/pocketbase-types";
 import pb from "../lib/pocketbase";
 interface ProfilePageProps {
   onBack?: () => void;
 }
 
 export default function ProfilePage({ onBack }: ProfilePageProps) {
-  const [profile, setProfile] = useState<UserProfile>({
+  const [profile, setProfile] = useState<Partial<UserProfile>>({
     target_calories: 0,
     target_protein_g: 0,
     weight_kg: 0,
     age: 0,
     height_cm: 0,
-    gender: 'male',
-    activity_level: 'sedentary',
-    goal: 'lose_weight',
+    gender: UserProfilesGenderOptions.male,
+    activity_level: UserProfilesActivityLevelOptions.sedentary,
+    goal: UserProfilesGoalOptions.lose_weight,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -66,9 +71,9 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
           weight_kg: userProfile.weight_kg || 70,
           age: userProfile.age || 25,
           height_cm: userProfile.height_cm || 170,
-          gender: userProfile.gender || 'male',
-          activity_level: userProfile.activity_level || 'moderate',
-          goal: userProfile.goal || 'maintain',
+          gender: userProfile.gender || UserProfilesGenderOptions.male,
+          activity_level: userProfile.activity_level || UserProfilesActivityLevelOptions.moderate,
+          goal: userProfile.goal || UserProfilesGoalOptions.maintain,
         });
       }
     } catch (error: unknown) {

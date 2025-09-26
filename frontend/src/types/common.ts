@@ -1,12 +1,24 @@
 // Central types file for shared interfaces across the application
+import type { 
+  UserProfilesResponse, 
+  MealTemplatesResponse, 
+  MealHistoryResponse,
+  UserProfilesGenderOptions,
+  UserProfilesActivityLevelOptions,
+  UserProfilesGoalOptions,
+  MealTemplatesProcessingStatusOptions
+} from './pocketbase-types';
 
-// PocketBase record interface
-export interface PBRecord {
-  id: string;
-  created: string;
-  updated: string;
-  [key: string]: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-}
+// Re-export generated types for better DX
+export type UserProfile = UserProfilesResponse;
+export type MealTemplate = MealTemplatesResponse;
+export type MealHistoryEntry = MealHistoryResponse;
+
+// Type aliases for enums
+export type Gender = UserProfilesGenderOptions;
+export type ActivityLevel = UserProfilesActivityLevelOptions;
+export type Goal = UserProfilesGoalOptions;
+export type ProcessingStatus = MealTemplatesProcessingStatusOptions;
 
 export interface UserGoals {
   target_calories: number
@@ -15,31 +27,13 @@ export interface UserGoals {
   age: number
 }
 
-export interface UserProfile {
-  id?: string
-  user?: string
-  target_calories: number
-  target_protein_g: number
-  target_carbs_g?: number
-  target_fat_g?: number
-  weight_kg: number
-  age: number
-  height_cm: number
-  gender: 'male' | 'female'
-  activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very active'
-  goal: 'lose_weight' | 'maintain' | 'gain_weight' | 'gain_muscle'
-  display_name?: string
-  created?: string
-  updated?: string
-}
-
 export interface OnboardingData {
   age: number
   weight: number
   height: number
-  gender: 'male' | 'female'
-  activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very active'
-  goal: 'lose_weight' | 'maintain' | 'gain_weight' | 'gain_muscle'
+  gender: Gender
+  activityLevel: ActivityLevel
+  goal: Goal
   customCalories?: number
   customProtein?: number
 }
@@ -48,9 +42,9 @@ export interface OnboardingFormData {
   age: string
   weight: string
   height: string
-  gender: 'male' | 'female'
-  activity: 'sedentary' | 'light' | 'moderate' | 'active' | 'very active'
-  goal: 'lose_weight' | 'maintain' | 'gain_weight' | 'gain_muscle'
+  gender: Gender
+  activity: ActivityLevel
+  goal: Goal
   customCalories: string
   customProtein: string
 }
@@ -64,6 +58,7 @@ export interface SignupData {
   onboardingData?: OnboardingData;
 }
 
+// Enhanced MealEntry that combines MealTemplate with MealHistory data
 export interface MealEntry {
   id: string;
   mealTemplateId?: string; // ID of the referenced meal_templates record
@@ -79,7 +74,7 @@ export interface MealEntry {
   totalFatG: number;
   fatUncertaintyPercent: number;
   imageUrl?: string;
-  processingStatus: "pending" | "processing" | "completed" | "failed";
+  processingStatus: ProcessingStatus;
   created: string;
   updated: string;
 }
