@@ -101,6 +101,7 @@ export default function CalorieTracker() {
         sort: "-created",
         created: `>${new Date(new Date().setHours(0, 0, 0, 0)).toISOString()}`,
         expand: "meal", // Expand the meal relation to get nutrition data
+        filter: `adjustments != 'hidden'`, // Filter out hidden meals (using adjustments field)
       });
 
       const meals: MealEntry[] = records.items.map((record) => {
@@ -111,6 +112,7 @@ export default function CalorieTracker() {
         
         return {
           id: record.id,
+          mealHistoryId: record.id,
           mealTemplateId: (mealTemplate?.id as string) || "",
           name: (mealTemplate?.name as string) || "Unknown Meal",
           userContext: (mealTemplate?.description as string) || "",
@@ -127,16 +129,33 @@ export default function CalorieTracker() {
           processingStatus: ((mealTemplate?.processing_status as string) || "pending") as MealTemplatesProcessingStatusOptions,
           created: record.created,
           updated: record.updated,
+          // Add linking information
+          linkedMealTemplateId: (mealTemplate?.linked_meal_template_id as string) || undefined,
+          isPrimaryInGroup: (mealTemplate?.is_primary_in_group as boolean) || false,
         };
       });
 
-      setMealHistory(meals);
+      // Preserve any optimistic entries (those with temp IDs) and merge with real data
+      setMealHistory(prevHistory => {
+        const optimisticEntries = prevHistory.filter(meal => meal.id.startsWith('temp_'));
+        
+        // Remove optimistic entries that have been replaced by real entries
+        const validOptimisticEntries = optimisticEntries.filter(optimistic => {
+          // If we have a real meal with the same mealTemplateId, remove the optimistic one
+          return !optimistic.mealTemplateId || !meals.some(real => real.mealTemplateId === optimistic.mealTemplateId);
+        });
 
-      // Calculate today's totals
-      const today = new Date().toDateString();
+        // Combine optimistic entries with real meals, sorted by created date
+        const combinedMeals = [...validOptimisticEntries, ...meals]
+          .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+        
+        return combinedMeals;
+      });
+
+      // Calculate today's totals (only from completed real meals)
+      // Use the same meals that were loaded (which are already filtered to today)
       const todayMeals = meals.filter(
         (meal: MealEntry) =>
-          new Date(meal.created).toDateString() === today &&
           meal.processingStatus === "completed",
       );
 
@@ -273,18 +292,65 @@ export default function CalorieTracker() {
   const handleMealSubmission = async () => {
     if (!selectedImage) return;
 
+    const tempId = `temp_${Date.now()}`;
+    const imageUrl = URL.createObjectURL(selectedImage);
+    
+    // Create optimistic meal entry that appears immediately
+    const optimisticMeal: MealEntry = {
+      id: tempId,
+      mealTemplateId: "",
+      name: mealDescription || "Analyzing meal...",
+      userContext: mealDescription || "",
+      aiDescription: "Analysis in progress...",
+      totalCalories: 0,
+      calorieUncertaintyPercent: 0,
+      totalProteinG: 0,
+      proteinUncertaintyPercent: 0,
+      totalCarbsG: 0,
+      carbsUncertaintyPercent: 0,
+      totalFatG: 0,
+      fatUncertaintyPercent: 0,
+      imageUrl: imageUrl,
+      processingStatus: MealTemplatesProcessingStatusOptions.processing,
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+    };
+
+    // Add optimistic entry to the beginning of meal history immediately
+    setMealHistory(prev => [optimisticMeal, ...prev]);
+
     try {
-      await pb.collection("meal_templates").create({
+      const newMealTemplate = await pb.collection("meal_templates").create({
         image: selectedImage,
         processing_status: "pending",
         description: mealDescription || "",
       });
 
+      // Update the optimistic entry with the real ID and processing status
+      setMealHistory(prev => 
+        prev.map(meal => 
+          meal.id === tempId 
+            ? { ...meal, id: newMealTemplate.id, mealTemplateId: newMealTemplate.id, processingStatus: MealTemplatesProcessingStatusOptions.processing }
+            : meal
+        )
+      );
+
       setSelectedImage(null);
       setMealDescription("");
+      
+      // Clean up the temporary URL
+      URL.revokeObjectURL(imageUrl);
+      
+      // Load fresh meal history to get any updates
       await loadMealHistory();
     } catch (error) {
       console.error("Error uploading image:", error);
+      
+      // Remove the optimistic entry on error
+      setMealHistory(prev => prev.filter(meal => meal.id !== tempId));
+      
+      // Clean up the temporary URL
+      URL.revokeObjectURL(imageUrl);
     }
   };
 
@@ -544,6 +610,7 @@ export default function CalorieTracker() {
                 key={meal.id}
                 meal={meal}
                 onClick={() => handleMealClick(meal)}
+                onMealRemoved={loadMealHistory}
               />
             ))}
           </div>

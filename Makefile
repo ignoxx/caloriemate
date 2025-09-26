@@ -4,7 +4,7 @@ run:
 	@go run . serve --http=0.0.0.0:8090
 
 fe:
-	@pushd ./frontend && npm run dev && popd
+	@pushd ./frontend && npm run dev -- --host && popd
 
 setup-su:
 	@go run . superuser upsert test@test.com test12345

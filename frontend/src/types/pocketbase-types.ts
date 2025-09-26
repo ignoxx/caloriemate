@@ -123,6 +123,8 @@ export type MealTemplatesRecord = {
 	fat_uncertainty_percent?: number
 	id: string
 	image?: string
+	is_primary_in_group?: boolean
+	linked_meal_template_id?: RecordIdString
 	name?: string
 	processing_status?: MealTemplatesProcessingStatusOptions
 	protein_uncertainty_percent?: number

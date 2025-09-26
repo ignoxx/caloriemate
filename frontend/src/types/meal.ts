@@ -1,7 +1,8 @@
 import { MealTemplatesProcessingStatusOptions } from './pocketbase-types';
 
 export interface MealEntry {
-  id: string;
+  id: string; // meal_history record ID
+  mealHistoryId: string; // explicit meal history ID for clarity
   mealTemplateId?: string;
   name: string;
   userContext: string;
@@ -18,6 +19,8 @@ export interface MealEntry {
   processingStatus: MealTemplatesProcessingStatusOptions;
   created: string;
   updated: string;
+  linkedMealTemplateId?: string;
+  isPrimaryInGroup?: boolean;
 }
 
 export interface SimilarMeal {

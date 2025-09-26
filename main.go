@@ -166,6 +166,155 @@ func main() {
 			return e.JSON(200, results)
 		})
 
+		// Add meal linking endpoint
+		se.Router.POST("/api/collections/meal_templates/records/{id}/link/{targetId}", func(e *core.RequestEvent) error {
+			id := e.Request.PathValue("id")
+			targetId := e.Request.PathValue("targetId")
+
+			// Get request info for authentication
+			ri, err := e.RequestInfo()
+			if err != nil || ri.Auth == nil {
+				return apis.NewUnauthorizedError("Authentication required", nil)
+			}
+
+			// Get both meal template records
+			record, err := e.App.FindRecordById("meal_templates", id)
+			if err != nil {
+				return apis.NewNotFoundError("Meal template not found", err)
+			}
+
+			targetRecord, err := e.App.FindRecordById("meal_templates", targetId)
+			if err != nil {
+				return apis.NewNotFoundError("Target meal template not found", err)
+			}
+
+			// Check ownership of both records
+			if record.GetString("user") != ri.Auth.Id || targetRecord.GetString("user") != ri.Auth.Id {
+				return apis.NewForbiddenError("Access denied", nil)
+			}
+
+			// Link the current meal to the target meal
+			record.Set("linked_meal_template_id", targetId)
+
+			// If target meal is not already primary in a group, make it primary
+			if !targetRecord.GetBool("is_primary_in_group") {
+				targetRecord.Set("is_primary_in_group", true)
+				if err := e.App.Save(targetRecord); err != nil {
+					return apis.NewBadRequestError("Failed to update target meal", err)
+				}
+			}
+
+			if err := e.App.Save(record); err != nil {
+				return apis.NewBadRequestError("Failed to link meals", err)
+			}
+
+			return e.JSON(200, map[string]interface{}{
+				"success": true,
+				"message": "Meals linked successfully",
+			})
+		})
+
+		// Add meal unlinking endpoint
+		se.Router.POST("/api/collections/meal_templates/records/{id}/unlink", func(e *core.RequestEvent) error {
+			id := e.Request.PathValue("id")
+
+			// Get request info for authentication
+			ri, err := e.RequestInfo()
+			if err != nil || ri.Auth == nil {
+				return apis.NewUnauthorizedError("Authentication required", nil)
+			}
+
+			// Get the meal template record
+			record, err := e.App.FindRecordById("meal_templates", id)
+			if err != nil {
+				return apis.NewNotFoundError("Meal template not found", err)
+			}
+
+			// Check ownership
+			if record.GetString("user") != ri.Auth.Id {
+				return apis.NewForbiddenError("Access denied", nil)
+			}
+
+			// Unlink the meal
+			record.Set("linked_meal_template_id", "")
+
+			if err := e.App.Save(record); err != nil {
+				return apis.NewBadRequestError("Failed to unlink meal", err)
+			}
+
+			return e.JSON(200, map[string]interface{}{
+				"success": true,
+				"message": "Meal unlinked successfully",
+			})
+		})
+
+		// Add meal history hide/unhide endpoint (using adjustments field to store status)
+		se.Router.POST("/api/collections/meal_history/records/{id}/hide", func(e *core.RequestEvent) error {
+			id := e.Request.PathValue("id")
+
+			// Get request info for authentication
+			ri, err := e.RequestInfo()
+			if err != nil || ri.Auth == nil {
+				return apis.NewUnauthorizedError("Authentication required", nil)
+			}
+
+			// Get the meal history record
+			record, err := e.App.FindRecordById("meal_history", id)
+			if err != nil {
+				return apis.NewNotFoundError("Meal history not found", err)
+			}
+
+			// Check ownership
+			if record.GetString("user") != ri.Auth.Id {
+				return apis.NewForbiddenError("Access denied", nil)
+			}
+
+			// Use the adjustments field to store status (hidden)
+			record.Set("adjustments", "hidden")
+
+			if err := e.App.Save(record); err != nil {
+				return apis.NewBadRequestError("Failed to hide meal", err)
+			}
+
+			return e.JSON(200, map[string]interface{}{
+				"success": true,
+				"message": "Meal hidden successfully",
+			})
+		})
+
+		se.Router.POST("/api/collections/meal_history/records/{id}/unhide", func(e *core.RequestEvent) error {
+			id := e.Request.PathValue("id")
+
+			// Get request info for authentication
+			ri, err := e.RequestInfo()
+			if err != nil || ri.Auth == nil {
+				return apis.NewUnauthorizedError("Authentication required", nil)
+			}
+
+			// Get the meal history record
+			record, err := e.App.FindRecordById("meal_history", id)
+			if err != nil {
+				return apis.NewNotFoundError("Meal history not found", err)
+			}
+
+			// Check ownership
+			if record.GetString("user") != ri.Auth.Id {
+				return apis.NewForbiddenError("Access denied", nil)
+			}
+
+			// Clear the adjustments field to unhide
+			record.Set("adjustments", "")
+
+			if err := e.App.Save(record); err != nil {
+				return apis.NewBadRequestError("Failed to unhide meal", err)
+			}
+
+			return e.JSON(200, map[string]interface{}{
+				"success": true,
+				"message": "Meal restored successfully",
+			})
+		})
+
 		// serves static files from the provided public dir (if exists)
 		se.Router.GET("/{path...}", apis.Static(distDirFs, true))
 
@@ -267,6 +416,25 @@ func main() {
 					e.Record.Set("total_fat_g", similarRecord.GetInt("total_fat_g"))
 					e.Record.Set("fat_uncertainty_percent", similarRecord.GetInt("fat_uncertainty_percent"))
 					e.Record.Set("processing_status", "completed")
+
+					// Auto-link meals if the match is very close
+					// Check if the similar meal is already linked to another meal or is primary
+					if similarRecord.GetString("linked_meal_template_id") != "" {
+						// Link to the same primary meal that the similar meal is linked to
+						e.Record.Set("linked_meal_template_id", similarRecord.GetString("linked_meal_template_id"))
+					} else if similarRecord.GetBool("is_primary_in_group") {
+						// Link directly to the similar meal (which is already primary)
+						e.Record.Set("linked_meal_template_id", bestMatch.MealTemplateID)
+					} else {
+						// Make the similar meal primary and link this new meal to it
+						similarRecord.Set("is_primary_in_group", true)
+						if err := e.App.Save(similarRecord); err != nil {
+							slog.Error("Failed to make similar meal primary", "error", err)
+						} else {
+							e.Record.Set("linked_meal_template_id", bestMatch.MealTemplateID)
+							slog.Info("Auto-linked new meal to similar meal", "newMeal", e.Record.Id, "primaryMeal", bestMatch.MealTemplateID)
+						}
+					}
 
 					shouldAnalyze = false
 					slog.Info("Auto-match completed", "recordId", e.Record.Id, "matchId", bestMatch.MealTemplateID)
