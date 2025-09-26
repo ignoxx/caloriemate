@@ -13,11 +13,11 @@ import {
   DrawerClose,
 } from "./ui/drawer";
 
-import { X, CheckCircle, Plus, Repeat } from "lucide-react";
-import { MealEntry } from "../types/common";
-import { SimilarMeal } from "../types/meal";
+import { X, CheckCircle, Plus, Repeat, Trash2, Link as LinkIcon, Loader2 } from "lucide-react";
+import { MealEntry, SimilarMeal } from "../types/meal";
 import { MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 import { fetchSimilarMeals } from "../lib/pocketbase";
+import pb from "../lib/pocketbase";
 
 // interface MealEntry {
 //   id: string;
@@ -41,9 +41,11 @@ import { fetchSimilarMeals } from "../lib/pocketbase";
 interface MealReviewModalProps {
   meal: MealEntry;
   open: boolean;
-  onMealConfirmed: (meal: MealEntry) => void;
-  onSimilarMealSelected: (similarMeal: SimilarMeal) => void;
+  onMealConfirmed?: (meal: MealEntry) => void; // Optional for existing meals
+  onSimilarMealSelected?: (similarMeal: SimilarMeal) => void; // Optional for existing meals
+  onMealRemoved?: () => void; // New: for removing existing meals
   onClose: () => void;
+  mode?: 'review' | 'view'; // New: determines if this is for new meal review or existing meal view
 }
 
 export function MealReviewModal({
@@ -51,7 +53,9 @@ export function MealReviewModal({
   open,
   onMealConfirmed,
   onSimilarMealSelected,
+  onMealRemoved,
   onClose,
+  mode = 'review',
 }: MealReviewModalProps) {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customName, setCustomName] = useState(meal.name);
@@ -66,11 +70,15 @@ export function MealReviewModal({
   const [description, setDescription] = useState(meal.aiDescription);
   const [similarMeals, setSimilarMeals] = useState<SimilarMeal[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [isLinking, setIsLinking] = useState(false);
 
   useEffect(() => {
     const loadSimilarMeals = async () => {
       try {
-        const similar = await fetchSimilarMeals(meal.id);
+        // For existing meals, use mealTemplateId if available, otherwise use id
+        const templateId = meal.mealTemplateId || meal.id;
+        const similar = await fetchSimilarMeals(templateId);
         setSimilarMeals(similar);
       } catch (error) {
         console.error("Failed to load similar meals:", error);
@@ -79,14 +87,54 @@ export function MealReviewModal({
       }
     };
 
-    loadSimilarMeals();
-  }, [meal.id]);
+    // Only load similar meals for completed meals and if not already linked
+    if (meal.processingStatus === "completed" && !meal.linkedMealTemplateId) {
+      loadSimilarMeals();
+    } else {
+      setLoadingSimilar(false);
+    }
+  }, [meal.id, meal.mealTemplateId, meal.processingStatus, meal.linkedMealTemplateId]);
 
-  const handleSimilarMealClick = (similarMeal: SimilarMeal) => {
-    onSimilarMealSelected(similarMeal);
+  const handleSimilarMealClick = async (similarMeal: SimilarMeal) => {
+    if (mode === 'review' && onSimilarMealSelected) {
+      onSimilarMealSelected(similarMeal);
+    } else if (mode === 'view' && meal.mealHistoryId) {
+      // Link existing meal to similar meal
+      setIsLinking(true);
+      try {
+        const response = await fetch(
+          `${pb.baseUrl}/api/collections/meal_history/records/${meal.mealHistoryId}/link`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': pb.authStore.token ? `Bearer ${pb.authStore.token}` : '',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              linked_meal_template_id: similarMeal.id,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to link meal');
+        }
+
+        // Close modal and refresh parent
+        onClose();
+        // You might want to add a success callback here
+      } catch (error) {
+        console.error('Failed to link meal:', error);
+        // TODO: Show error toast
+      } finally {
+        setIsLinking(false);
+      }
+    }
   };
 
   const handleConfirmMeal = () => {
+    if (!onMealConfirmed) return;
+    
     const confirmedMeal: MealEntry = {
       ...meal,
       name: showCustomForm ? customName : meal.name,
@@ -105,6 +153,40 @@ export function MealReviewModal({
     };
 
     onMealConfirmed(confirmedMeal);
+  };
+
+  const handleRemoveMeal = async () => {
+    if (!meal.mealHistoryId || !onMealRemoved) return;
+    
+    if (!confirm("Remove this meal from today's list? The meal will be kept in your templates.")) {
+      return;
+    }
+
+    setIsRemoving(true);
+    
+    try {
+      const response = await fetch(
+        `${pb.baseUrl}/api/collections/meal_history/records/${meal.mealHistoryId}/hide`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': pb.authStore.token ? `Bearer ${pb.authStore.token}` : '',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to remove meal');
+      }
+
+      onMealRemoved();
+      onClose();
+    } catch (error) {
+      console.error('Failed to remove meal:', error);
+      // TODO: Show error toast
+    } finally {
+      setIsRemoving(false);
+    }
   };
 
   const formatNutritionWithUncertainty = (
@@ -126,7 +208,7 @@ export function MealReviewModal({
         <DrawerHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <DrawerTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
-            Review Your Meal
+            {mode === 'review' ? 'Review Your Meal' : 'Meal Details'}
           </DrawerTitle>
           <DrawerClose asChild>
             <Button variant="ghost" size="sm">
@@ -241,9 +323,19 @@ export function MealReviewModal({
                           size="sm"
                           variant="outline"
                           onClick={() => handleSimilarMealClick(similarMeal)}
+                          disabled={isLinking}
                           className="ml-3"
                         >
-                          Use This
+                          {isLinking ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : mode === 'review' ? (
+                            'Use This'
+                          ) : (
+                            <>
+                              <LinkIcon className="h-3 w-3 mr-1" />
+                              Link
+                            </>
+                          )}
                         </Button>
                       </div>
                     </CardContent>
@@ -348,12 +440,49 @@ export function MealReviewModal({
               </div>
             </div>
           )}
+
+          {/* Meal Actions - Only show for existing meals */}
+          {mode === 'view' && (
+            <div className="space-y-3">
+              <h3 className="font-medium text-foreground">Actions</h3>
+              <div className="space-y-2">
+                <Card
+                  className="cursor-pointer transition-colors hover:bg-red-50 dark:hover:bg-red-950/20 border-red-200 dark:border-red-800"
+                  onClick={handleRemoveMeal}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-2">
+                      {isRemoving ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-red-600" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className="font-medium text-sm text-red-600">
+                        {isRemoving ? "Removing..." : "Remove from today's meals"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-red-500 mt-1">
+                      This will hide the meal from today but keep it in your templates
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
         </div>
 
         <DrawerFooter className="border-t">
-          <Button onClick={handleConfirmMeal} className="w-full" size="lg">
-            Confirm Meal
-          </Button>
+          {mode === 'review' ? (
+            <Button onClick={handleConfirmMeal} className="w-full" size="lg">
+              Confirm Meal
+            </Button>
+          ) : (
+            <DrawerClose asChild>
+              <Button variant="outline" className="w-full" size="lg">
+                Close
+              </Button>
+            </DrawerClose>
+          )}
         </DrawerFooter>
       </DrawerContent>
     </Drawer>

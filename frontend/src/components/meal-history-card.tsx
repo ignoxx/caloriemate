@@ -1,10 +1,8 @@
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Clock, Edit, Loader2, CheckCircle, AlertCircle, Repeat, Link as LinkIcon, X } from "lucide-react";
-import { MealEntry, SimilarMeal } from "../types/meal";
-import { useState, useEffect } from "react";
-import { fetchSimilarMeals } from "../lib/pocketbase";
-import { SimilarMealsModal } from "./similar-meals-modal";
+import { Clock, Edit, Loader2, CheckCircle, AlertCircle, Link as LinkIcon, X } from "lucide-react";
+import { MealEntry } from "../types/meal";
+import { useState } from "react";
 import pb from "../lib/pocketbase";
 
 interface MealHistoryCardProps {
@@ -14,11 +12,6 @@ interface MealHistoryCardProps {
 }
 
 export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCardProps) {
-  const [hasSimilarMeals, setHasSimilarMeals] = useState(false);
-  const [similarMeals, setSimilarMeals] = useState<SimilarMeal[]>([]);
-  const [isCheckingSimilarity, setIsCheckingSimilarity] = useState(false);
-  const [similarityCheckAttempted, setSimilarityCheckAttempted] = useState(false);
-  const [showSimilarMealsModal, setShowSimilarMealsModal] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
 
   const timeString = new Date(meal.created).toLocaleTimeString("en-US", {
@@ -26,30 +19,6 @@ export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCar
     minute: "2-digit",
     hour12: true,
   });
-
-  // Check for similar meals when meal is completed (only if not already linked)
-  useEffect(() => {
-    if (meal.processingStatus === "completed" && 
-        meal.mealTemplateId && 
-        !meal.linkedMealTemplateId && // Don't check for similar meals if already linked
-        !isCheckingSimilarity && 
-        !similarityCheckAttempted) {
-      setIsCheckingSimilarity(true);
-      setSimilarityCheckAttempted(true); // Mark as attempted to prevent retries
-      fetchSimilarMeals(meal.mealTemplateId)
-        .then((similarMeals) => {
-          setSimilarMeals(similarMeals);
-          setHasSimilarMeals(similarMeals.length > 0);
-        })
-        .catch((error) => {
-          console.error('Failed to check for similar meals:', error);
-          // Don't retry on error to prevent infinite loops
-        })
-        .finally(() => {
-          setIsCheckingSimilarity(false);
-        });
-    }
-  }, [meal.mealTemplateId, meal.processingStatus, meal.linkedMealTemplateId, isCheckingSimilarity, similarityCheckAttempted]);
 
   const getStatusIcon = () => {
     switch (meal.processingStatus) {
@@ -87,18 +56,6 @@ export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCar
       return `${min}-${max}${unit}`;
     }
     return `${value}${unit}`;
-  };
-
-  const handleSimilarMealsBadgeClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
-    setShowSimilarMealsModal(true);
-  };
-
-  const handleMealLinked = () => {
-    // Refresh the meal data or show success message
-    // For now, just hide the similar meals badge since the meal is now linked
-    setHasSimilarMeals(false);
-    setSimilarMeals([]);
   };
 
   const handleRemoveMeal = async (e: React.MouseEvent) => {
@@ -213,23 +170,13 @@ export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCar
                     Linked meal
                   </Badge>
                 )}
-                {meal.isPrimaryInGroup && (
-                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
-                    Primary in group
-                  </Badge>
-                )}
-                {hasSimilarMeals && !meal.linkedMealTemplateId && (
-                  <Badge 
-                    variant="outline" 
-                    className="text-xs text-primary border-primary/20 cursor-pointer hover:bg-primary/10"
-                    onClick={handleSimilarMealsBadgeClick}
-                  >
-                    <Repeat className="h-3 w-3 mr-1" />
-                    {similarMeals.length} similar meal{similarMeals.length !== 1 ? 's' : ''} found
-                  </Badge>
-                )}
-              </div>
-            ) : (
+                 {meal.isPrimaryInGroup && (
+                   <Badge variant="outline" className="text-xs text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
+                     Primary in group
+                   </Badge>
+                 )}
+               </div>
+             ) : (
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="destructive" className="text-xs">
                   {getStatusText()}
@@ -250,14 +197,6 @@ export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCar
           </div>
         </div>
       </CardContent>
-
-      <SimilarMealsModal
-        meal={meal}
-        similarMeals={similarMeals}
-        isOpen={showSimilarMealsModal}
-        onClose={() => setShowSimilarMealsModal(false)}
-        onMealLinked={handleMealLinked}
-      />
     </Card>
   );
 }

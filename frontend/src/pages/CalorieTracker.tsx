@@ -18,8 +18,8 @@ import { MealHistoryCard } from "../components/meal-history-card";
 // import { WeeklyActivity } from "../components/weekly-activity";
 import { useAuth } from "../contexts/AuthContext";
 import ProfilePage from "./ProfilePage";
-import { UserGoals, MealEntry, OnboardingData } from "../types/common";
-import { SimilarMeal } from "../types/meal";
+import { UserGoals, OnboardingData } from "../types/common";
+import { MealEntry, SimilarMeal } from "../types/meal";
 import { MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 
 import pb from "../lib/pocketbase";
@@ -30,6 +30,7 @@ export default function CalorieTracker() {
   const [todayCalories, setTodayCalories] = useState(0);
   const [todayProtein, setTodayProtein] = useState(0);
   const [showMealReview, setShowMealReview] = useState(false);
+  const [mealReviewMode, setMealReviewMode] = useState<'review' | 'view'>('review');
   const [selectedMeal, setSelectedMeal] = useState<MealEntry | null>(null);
   const [mealHistory, setMealHistory] = useState<MealEntry[]>([]);
   const [mealDescription, setMealDescription] = useState("");
@@ -148,6 +149,23 @@ export default function CalorieTracker() {
         // Combine optimistic entries with real meals, sorted by created date
         const combinedMeals = [...validOptimisticEntries, ...meals]
           .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+
+        // Check for newly completed meals that should trigger review modal
+        const newlyCompletedMeals = meals.filter(meal => {
+          const wasProcessing = prevHistory.some(prevMeal => 
+            prevMeal.mealTemplateId === meal.mealTemplateId && 
+            prevMeal.processingStatus === "processing"
+          );
+          return meal.processingStatus === "completed" && wasProcessing;
+        });
+
+        // Show review modal for the most recent newly completed meal
+        if (newlyCompletedMeals.length > 0 && !selectedMeal) {
+          const mostRecentCompleted = newlyCompletedMeals[0];
+          setSelectedMeal(mostRecentCompleted);
+          setMealReviewMode('review'); // Set to review mode for new meals
+          setShowMealReview(true);
+        }
         
         return combinedMeals;
       });
@@ -298,6 +316,7 @@ export default function CalorieTracker() {
     // Create optimistic meal entry that appears immediately
     const optimisticMeal: MealEntry = {
       id: tempId,
+      mealHistoryId: tempId, // Use tempId for optimistic entries
       mealTemplateId: "",
       name: mealDescription || "Analyzing meal...",
       userContext: mealDescription || "",
@@ -357,6 +376,7 @@ export default function CalorieTracker() {
   const handleMealClick = (meal: MealEntry) => {
     if (meal.processingStatus === "completed") {
       setSelectedMeal(meal);
+      setMealReviewMode('view'); // Set to view mode for existing meals
       setShowMealReview(true);
     }
   };
@@ -631,8 +651,10 @@ export default function CalorieTracker() {
         <MealReviewModal
           meal={selectedMeal}
           open={showMealReview}
+          mode={mealReviewMode}
           onMealConfirmed={handleMealConfirmed}
           onSimilarMealSelected={handleSimilarMealSelected}
+          onMealRemoved={loadMealHistory}
           onClose={() => {
             setShowMealReview(false);
             setSelectedMeal(null);
