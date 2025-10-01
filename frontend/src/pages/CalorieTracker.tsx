@@ -1,6 +1,6 @@
 import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Camera, Upload, Plus, Target, Zap, Send, User } from "lucide-react";
+import { Camera, Upload, Plus, Target, Zap, Send, User, History } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -18,6 +18,7 @@ import { MealHistoryCard } from "../components/meal-history-card";
 // import { WeeklyActivity } from "../components/weekly-activity";
 import { useAuth } from "../contexts/AuthContext";
 import ProfilePage from "./ProfilePage";
+import WeeklyHistoryPage from "./WeeklyHistoryPage";
 import { UserGoals, OnboardingData } from "../types/common";
 import { MealEntry, SimilarMeal } from "../types/meal";
 import { MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
@@ -36,6 +37,7 @@ export default function CalorieTracker() {
   const [mealDescription, setMealDescription] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [lastResetDate, setLastResetDate] = useState<string>(new Date().toDateString());
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -489,6 +491,10 @@ export default function CalorieTracker() {
     return <ProfilePage onBack={() => setShowProfile(false)} />;
   }
 
+  if (showWeeklyHistory) {
+    return <WeeklyHistoryPage onBack={() => setShowWeeklyHistory(false)} userGoals={userGoals} />;
+  }
+
   const calorieProgress = userGoals
     ? (todayCalories / userGoals.target_calories) * 100
     : 0;
@@ -513,6 +519,14 @@ export default function CalorieTracker() {
                 </p>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowWeeklyHistory(true)}
+                title="Weekly History"
+              >
+                <History className="h-5 w-5" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
