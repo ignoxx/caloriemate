@@ -3,4 +3,4 @@ pb_data/
 .env
 caloriemate
 vec0.dylib*
-
+.DS_Store

@@ -1,242 +1,541 @@
-import type React from "react"
-import { useState, useRef, useEffect } from "react"
-import { Camera, Upload, Plus, Target, Zap } from "lucide-react"
-import { Button } from "../components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
-import { Progress } from "../components/ui/progress"
-import { Badge } from "../components/ui/badge"
-import { OnboardingModal } from "../components/onboarding-modal"
-import { MealReviewModal } from "../components/meal-review-modal"
-import { MealHistoryCard } from "../components/meal-history-card"
-import { WeeklyActivity } from "../components/weekly-activity"
-import { ThemeToggle } from "../components/theme-toggle"
+import type React from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Camera, Upload, Plus, Target, Zap, Send, User, History } from "lucide-react";
+import { Button } from "../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Progress } from "../components/ui/progress";
+import { Badge } from "../components/ui/badge";
+import { Textarea } from "../components/ui/textarea";
+import { Label } from "../components/ui/label";
+import { OnboardingModal } from "../components/onboarding-modal";
+import { MealReviewModal } from "../components/meal-review-modal";
+import { MealHistoryCard } from "../components/meal-history-card";
+// import { WeeklyActivity } from "../components/weekly-activity";
+import { useAuth } from "../contexts/AuthContext";
+import ProfilePage from "./ProfilePage";
+import WeeklyHistoryPage from "./WeeklyHistoryPage";
+import { UserGoals, OnboardingData } from "../types/common";
+import { MealEntry, SimilarMeal } from "../types/meal";
+import { MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 
-interface UserGoals {
-  calories: number
-  protein: number
-  weight: number
-  age: number
-}
-
-interface MealEntry {
-  id: string
-  name: string
-  calories: number | { min: number; max: number }
-  protein: number | { min: number; max: number }
-  timestamp: Date
-  imageUrl?: string
-  description?: string
-  status: "processing" | "processed" | "confirmed"
-  analysisResults?: FoodMatch[]
-}
-
-interface FoodMatch {
-  id: string
-  name: string
-  calories: { min: number; max: number }
-  protein: { min: number; max: number }
-  source: "user" | "openfoodfacts"
-  confidence: number
-  lastEaten?: Date
-}
+import pb from "../lib/pocketbase";
 
 export default function CalorieTracker() {
-  const [isOnboarded, setIsOnboarded] = useState(false)
-  const [userGoals, setUserGoals] = useState<UserGoals | null>(null)
-  const [todayCalories, setTodayCalories] = useState(0)
-  const [todayProtein, setTodayProtein] = useState(0)
-  const [showMealReview, setShowMealReview] = useState(false)
-  const [selectedMeal, setSelectedMeal] = useState<MealEntry | null>(null)
-  const [mealHistory, setMealHistory] = useState<MealEntry[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isOnboarded, setIsOnboarded] = useState(false);
+  const [userGoals, setUserGoals] = useState<UserGoals | null>(null);
+  const [todayCalories, setTodayCalories] = useState(0);
+  const [todayProtein, setTodayProtein] = useState(0);
+  const [showMealReview, setShowMealReview] = useState(false);
+  const [mealReviewMode, setMealReviewMode] = useState<'review' | 'view'>('review');
+  const [selectedMeal, setSelectedMeal] = useState<MealEntry | null>(null);
+  const [mealHistory, setMealHistory] = useState<MealEntry[]>([]);
+  const [mealDescription, setMealDescription] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [lastResetDate, setLastResetDate] = useState<string>(new Date().toDateString());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasLoadedMealsRef = useRef(false);
+  const hasLoadedProfileRef = useRef(false);
+  const { user } = useAuth();
 
-  // Check if user is onboarded
-  useEffect(() => {
-    const savedGoals = localStorage.getItem("userGoals")
-    const savedMeals = localStorage.getItem("mealHistory")
+  // Load user profile from database
+  const loadUserProfile = useCallback(async () => {
+    try {
+      if (!user) return;
 
-    if (savedGoals) {
-      setUserGoals(JSON.parse(savedGoals))
-      setIsOnboarded(true)
+      setIsLoadingProfile(true);
+      console.log("Loading user profile for user:", user.id);
+      
+      const records = await pb.collection("user_profiles").getList(1, 1, {
+        filter: `user = "${user.id}"`,
+      });
+
+      console.log("User profile query result:", records);
+
+      if (records.items.length > 0) {
+        const profile = records.items[0];
+        console.log("Found user profile:", profile);
+        const goals: UserGoals = {
+          target_calories: profile.target_calories || 2000,
+          target_protein_g: profile.target_protein_g || 150,
+          weight: profile.weight_kg || 70, // Convert weight_kg to weight
+          age: profile.age || 25,
+        };
+        setUserGoals(goals);
+        setIsOnboarded(true);
+        console.log("User is onboarded, setting goals:", goals);
+      } else {
+        // No profile found - user needs onboarding
+        console.log("No user profile found - showing onboarding");
+        setIsOnboarded(false);
+      }
+    } catch (error) {
+      console.error("Failed to load user profile:", error);
+      setIsOnboarded(false);
+    } finally {
+      setIsLoadingProfile(false);
     }
+  }, [user]);
 
-    if (savedMeals) {
-      const meals = JSON.parse(savedMeals).map((meal: MealEntry) => ({
-        ...meal,
-        timestamp: new Date(meal.timestamp),
-      }))
-      setMealHistory(meals)
+  // Load meal history from PocketBase
+  const loadMealHistory = useCallback(async () => {
+    try {
+      const records = await pb.collection("meal_history").getList(1, 50, {
+        sort: "-created",
+        created: `>${new Date(new Date().setHours(0, 0, 0, 0)).toISOString()}`,
+        expand: "meal", // Expand the meal relation to get nutrition data
+        filter: `adjustments != 'hidden'`, // Filter out hidden meals (using adjustments field)
+      });
 
-      // Calculate today's totals (only confirmed meals)
-      const today = new Date().toDateString()
-      const todayMeals = meals.filter(
-        (meal: MealEntry) => new Date(meal.timestamp).toDateString() === today && meal.status === "confirmed",
-      )
+      const meals: MealEntry[] = records.items.map((record) => {
+        const recordData = record as Record<string, unknown>;
+        const expandData = recordData.expand as Record<string, unknown>;
+        const mealTemplate = expandData?.meal as Record<string, unknown>;
+        const portionMultiplier = (recordData.portion_multiplier as number) || 1.0;
+        
+        return {
+          id: record.id,
+          mealHistoryId: record.id,
+          mealTemplateId: (mealTemplate?.id as string) || "",
+          name: (mealTemplate?.name as string) || "Unknown Meal",
+          userContext: (mealTemplate?.description as string) || "",
+          aiDescription: (mealTemplate?.ai_description as string) || "",
+          totalCalories: Math.round(((mealTemplate?.total_calories as number) || 0) * portionMultiplier + ((recordData.calorie_adjustment as number) || 0)),
+          calorieUncertaintyPercent: (mealTemplate?.calorie_uncertainty_percent as number) || 0,
+          totalProteinG: Math.round(((mealTemplate?.total_protein_g as number) || 0) * portionMultiplier + ((recordData.protein_adjustment as number) || 0)),
+          proteinUncertaintyPercent: (mealTemplate?.protein_uncertainty_percent as number) || 0,
+          totalCarbsG: Math.round(((mealTemplate?.total_carbs_g as number) || 0) * portionMultiplier + ((recordData.carb_adjustment as number) || 0)),
+          carbsUncertaintyPercent: (mealTemplate?.carbs_uncertainty_percent as number) || 0,
+          totalFatG: Math.round(((mealTemplate?.total_fat_g as number) || 0) * portionMultiplier + ((recordData.fat_adjustment as number) || 0)),
+          fatUncertaintyPercent: (mealTemplate?.fat_uncertainty_percent as number) || 0,
+          imageUrl: mealTemplate?.image ? `${pb.baseURL}/api/files/meal_templates/${mealTemplate.id}/${mealTemplate.image}` : undefined,
+          processingStatus: ((mealTemplate?.processing_status as string) || "pending") as MealTemplatesProcessingStatusOptions,
+          created: record.created,
+          updated: record.updated,
+          // Add linking information
+          linkedMealTemplateId: (mealTemplate?.linked_meal_template_id as string) || undefined,
+          isPrimaryInGroup: (mealTemplate?.is_primary_in_group as boolean) || false,
+        };
+      });
 
-      const totalCalories = todayMeals.reduce((sum: number, meal: MealEntry) => {
-        const calories = typeof meal.calories === "number" ? meal.calories : meal.calories.max
-        return sum + calories
-      }, 0)
-      const totalProtein = todayMeals.reduce((sum: number, meal: MealEntry) => {
-        const protein = typeof meal.protein === "number" ? meal.protein : meal.protein.max
-        return sum + protein
-      }, 0)
+      // Filter meals to ensure only today's meals (client-side backup)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todaysMeals = meals.filter(meal => {
+        const mealDate = new Date(meal.created);
+        return mealDate >= todayStart;
+      });
 
-      setTodayCalories(totalCalories)
-      setTodayProtein(totalProtein)
+      // Preserve any optimistic entries (those with temp IDs) and merge with real data
+      setMealHistory(prevHistory => {
+        const optimisticEntries = prevHistory.filter(meal => meal.id.startsWith('temp_'));
+        
+        // Remove optimistic entries that have been replaced by real entries
+        const validOptimisticEntries = optimisticEntries.filter(optimistic => {
+          // If we have a real meal with the same mealTemplateId, remove the optimistic one
+          return !optimistic.mealTemplateId || !todaysMeals.some(real => real.mealTemplateId === optimistic.mealTemplateId);
+        });
+
+        // Combine optimistic entries with real meals, sorted by created date
+        const combinedMeals = [...validOptimisticEntries, ...todaysMeals]
+          .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+
+        // Check for newly completed meals that should trigger review modal
+        const newlyCompletedMeals = todaysMeals.filter(meal => {
+          const wasProcessing = prevHistory.some(prevMeal => 
+            prevMeal.mealTemplateId === meal.mealTemplateId && 
+            prevMeal.processingStatus === "processing"
+          );
+          return meal.processingStatus === "completed" && wasProcessing;
+        });
+
+        // Show review modal for the most recent newly completed meal
+        if (newlyCompletedMeals.length > 0 && !selectedMeal) {
+          const mostRecentCompleted = newlyCompletedMeals[0];
+          setSelectedMeal(mostRecentCompleted);
+          setMealReviewMode('review'); // Set to review mode for new meals
+          setShowMealReview(true);
+        }
+        
+        return combinedMeals;
+      });
+
+      // Calculate today's totals (only from completed real meals)
+      // Use the filtered today's meals and only include completed ones
+      const completedTodayMeals = todaysMeals.filter(
+        (meal: MealEntry) =>
+          meal.processingStatus === "completed",
+      );
+
+      const totalCalories = completedTodayMeals.reduce(
+        (sum, meal) => sum + meal.totalCalories,
+        0,
+      );
+      const totalProtein = completedTodayMeals.reduce(
+        (sum, meal) => sum + meal.totalProteinG,
+        0,
+      );
+
+      setTodayCalories(totalCalories);
+      setTodayProtein(totalProtein);
+    } catch (error) {
+      console.error("Failed to load meal history:", error);
     }
-  }, [])
+  }, []);
 
-  // Simulate meal processing
+  // Poll for processing status updates
   useEffect(() => {
-    const processingMeals = mealHistory.filter((meal) => meal.status === "processing")
+    const processingMeals = mealHistory.filter(
+      (meal) => meal.processingStatus === "processing",
+    );
 
-    processingMeals.forEach((meal) => {
-      setTimeout(() => {
-        // Simulate analysis completion
-        const mockAnalysisResults: FoodMatch[] = [
-          {
-            id: "1",
-            name: "Grilled Chicken Breast with Rice",
-            calories: { min: 400, max: 500 },
-            protein: { min: 30, max: 40 },
-            source: "user",
-            confidence: 95,
-            lastEaten: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-          },
-          {
-            id: "2",
-            name: "Chicken Rice Bowl",
-            calories: { min: 480, max: 560 },
-            protein: { min: 28, max: 36 },
-            source: "openfoodfacts",
-            confidence: 87,
-          },
-          {
-            id: "3",
-            name: "Teriyaki Chicken with Steamed Rice",
-            calories: { min: 450, max: 510 },
-            protein: { min: 25, max: 31 },
-            source: "openfoodfacts",
-            confidence: 82,
-          },
-        ]
+    if (processingMeals.length > 0) {
+      const interval = setInterval(() => {
+        loadMealHistory();
+      }, 2000); // Poll every 2 seconds
 
-        setMealHistory((prev) =>
-          prev.map((m) =>
-            m.id === meal.id
-              ? {
-                  ...m,
-                  status: "processed" as const,
-                  analysisResults: mockAnalysisResults,
-                }
-              : m,
-          ),
-        )
-      }, 3000) // 3 second processing time
-    })
-  }, [mealHistory])
+      return () => clearInterval(interval);
+    }
+  }, [mealHistory, loadMealHistory]);
 
-  const handleOnboardingComplete = (goals: UserGoals) => {
-    setUserGoals(goals)
-    setIsOnboarded(true)
-    localStorage.setItem("userGoals", JSON.stringify(goals))
-  }
+  const handleOnboardingComplete = async (data: OnboardingData) => {
+    try {
+      if (!user) throw new Error("No user found");
+
+      console.log("Completing onboarding with data:", data);
+
+      // Calculate default values using the same logic as onboarding components
+      const calculateGoals = () => {
+        const age = data.age;
+        const weight = data.weight;
+        const height = data.height;
+
+        // Simple BMR calculation (Mifflin-St Jeor)
+        let bmr: number;
+        if (data.gender === "male") {
+          bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+        } else {
+          bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+        }
+
+        // Activity multiplier
+        const activityMultipliers = {
+          sedentary: 1.2,
+          light: 1.375,
+          moderate: 1.55,
+          active: 1.725,
+          "very active": 1.9,
+        };
+
+        const tdee = bmr * activityMultipliers[data.activityLevel as keyof typeof activityMultipliers];
+
+        // Goal adjustment
+        let calories = tdee;
+        if (data.goal === "lose_weight") calories -= 500;
+        if (data.goal === "gain_weight" || data.goal === "gain_muscle") calories += 500;
+
+        // Protein: 1.6-2.2g per kg body weight
+        const protein = Math.round(weight * 1.8);
+
+        return {
+          calories: Math.round(calories),
+          protein,
+        };
+      };
+
+      const calculatedGoals = calculateGoals();
+
+      // Create user profile in database
+      const profileData = {
+        user: user.id,
+        target_calories: data.customCalories || calculatedGoals.calories,
+        target_protein_g: data.customProtein || calculatedGoals.protein,
+        weight_kg: data.weight,
+        age: data.age,
+        height_cm: data.height,
+        gender: data.gender,
+        activity_level: data.activityLevel,
+        goal: data.goal,
+      };
+
+      console.log("Creating profile data:", profileData);
+
+      await pb.collection("user_profiles").create(profileData);
+
+      console.log("Profile created successfully");
+
+      // Convert to UserGoals format for local state
+      const goals: UserGoals = {
+        target_calories: data.customCalories || calculatedGoals.calories,
+        target_protein_g: data.customProtein || calculatedGoals.protein,
+        weight: data.weight, // Note: this maps to weight_kg in DB
+        age: data.age,
+      };
+
+      setUserGoals(goals);
+      setIsOnboarded(true);
+    } catch (error) {
+      console.error("Failed to create user profile:", error);
+    }
+  };
 
   const handleCameraCapture = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      })
-
-      // For POC, we'll simulate camera capture
-      setTimeout(() => {
-        stream.getTracks().forEach((track) => track.stop())
-        handleImageCaptured("/placeholder.svg?height=300&width=300")
-      }, 1000)
+      // For now, fallback to file upload as camera capture would need more complex implementation
+      fileInputRef.current?.click();
     } catch (error) {
-      console.error("Camera access denied:", error)
+      console.error("Camera access denied:", error);
       // Fallback to file upload
-      fileInputRef.current?.click()
+      fileInputRef.current?.click();
     }
-  }
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        handleImageCaptured(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
+      setSelectedImage(file);
     }
-  }
+  };
 
-  const handleImageCaptured = (imageUrl: string) => {
-    // Immediately create a processing meal entry
-    const newMeal: MealEntry = {
-      id: Date.now().toString(),
-      name: "Analyzing meal...",
-      calories: 0,
-      protein: 0,
-      timestamp: new Date(),
-      imageUrl,
-      status: "processing",
+  const handleMealSubmission = async () => {
+    if (!selectedImage) return;
+
+    const tempId = `temp_${Date.now()}`;
+    const imageUrl = URL.createObjectURL(selectedImage);
+    
+    // Create optimistic meal entry that appears immediately
+    const optimisticMeal: MealEntry = {
+      id: tempId,
+      mealHistoryId: tempId, // Use tempId for optimistic entries
+      mealTemplateId: "",
+      name: mealDescription || "Analyzing meal...",
+      userContext: mealDescription || "",
+      aiDescription: "Analysis in progress...",
+      totalCalories: 0,
+      calorieUncertaintyPercent: 0,
+      totalProteinG: 0,
+      proteinUncertaintyPercent: 0,
+      totalCarbsG: 0,
+      carbsUncertaintyPercent: 0,
+      totalFatG: 0,
+      fatUncertaintyPercent: 0,
+      imageUrl: imageUrl,
+      processingStatus: MealTemplatesProcessingStatusOptions.processing,
+      created: new Date().toISOString(),
+      updated: new Date().toISOString(),
+    };
+
+    // Add optimistic entry to the beginning of meal history immediately
+    setMealHistory(prev => [optimisticMeal, ...prev]);
+
+    try {
+      const newMealTemplate = await pb.collection("meal_templates").create({
+        image: selectedImage,
+        processing_status: "pending",
+        description: mealDescription || "",
+      });
+
+      // Update the optimistic entry with the real ID and processing status
+      setMealHistory(prev => 
+        prev.map(meal => 
+          meal.id === tempId 
+            ? { ...meal, id: newMealTemplate.id, mealTemplateId: newMealTemplate.id, processingStatus: MealTemplatesProcessingStatusOptions.processing }
+            : meal
+        )
+      );
+
+      setSelectedImage(null);
+      setMealDescription("");
+      
+      // Clean up the temporary URL
+      URL.revokeObjectURL(imageUrl);
+      
+      // Load fresh meal history to get any updates
+      await loadMealHistory();
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      
+      // Remove the optimistic entry on error
+      setMealHistory(prev => prev.filter(meal => meal.id !== tempId));
+      
+      // Clean up the temporary URL
+      URL.revokeObjectURL(imageUrl);
     }
-
-    const updatedHistory = [...mealHistory, newMeal]
-    setMealHistory(updatedHistory)
-    localStorage.setItem("mealHistory", JSON.stringify(updatedHistory))
-  }
+  };
 
   const handleMealClick = (meal: MealEntry) => {
-    if (meal.status === "processed") {
-      setSelectedMeal(meal)
-      setShowMealReview(true)
+    if (meal.processingStatus === "completed") {
+      setSelectedMeal(meal);
+      setMealReviewMode('view'); // Set to view mode for existing meals
+      setShowMealReview(true);
     }
-  }
+  };
 
-  const handleMealConfirmed = (confirmedMeal: MealEntry) => {
-    const updatedHistory = mealHistory.map((meal) => (meal.id === confirmedMeal.id ? confirmedMeal : meal))
-    setMealHistory(updatedHistory)
-    localStorage.setItem("mealHistory", JSON.stringify(updatedHistory))
+  const handleMealConfirmed = async (confirmedMeal: MealEntry) => {
+    try {
+      // Update the meal status in PocketBase
+      await pb.collection("meal_history").update(confirmedMeal.id, {
+        processingStatus: "completed",
+      });
 
-    // Update today's totals if it's today's meal
-    const today = new Date().toDateString()
-    if (new Date(confirmedMeal.timestamp).toDateString() === today) {
-      const calories = typeof confirmedMeal.calories === "number" ? confirmedMeal.calories : confirmedMeal.calories.max
-      const protein = typeof confirmedMeal.protein === "number" ? confirmedMeal.protein : confirmedMeal.protein.max
-
-      setTodayCalories((prev) => prev + calories)
-      setTodayProtein((prev) => prev + protein)
+      // Refresh meal history
+      await loadMealHistory();
+    } catch (error) {
+      console.error("Error confirming meal:", error);
     }
 
-    setShowMealReview(false)
-    setSelectedMeal(null)
+    setShowMealReview(false);
+    setSelectedMeal(null);
+  };
+
+  const handleSimilarMealSelected = async (similarMeal: SimilarMeal) => {
+    try {
+      // Create new meal history record that references the meal template
+      const newMealRecord = await pb.collection("meal_history").create({
+        meal: similarMeal.id, // Reference to the meal_templates record
+        user: pb.authStore.model?.id,
+        portion_multiplier: 1.0, // Default to 1x portion
+        adjustments: `Selected from similar meal: ${similarMeal.name}`,
+      });
+
+      console.log("Created meal history from similar meal:", newMealRecord);
+
+      // Refresh meal history
+      await loadMealHistory();
+    } catch (error) {
+      console.error("Error creating meal from similar meal:", error);
+    }
+
+    setShowMealReview(false);
+    setSelectedMeal(null);
+  };
+
+  // Check for daily reset and clear old data on mount
+  useEffect(() => {
+    const currentDate = new Date().toDateString();
+    
+    // Always clear meal history on component mount to ensure fresh start
+    setMealHistory([]);
+    setTodayCalories(0);
+    setTodayProtein(0);
+    
+    if (currentDate !== lastResetDate) {
+      // New day detected - update the reset date
+      setLastResetDate(currentDate);
+      
+      // Force reload of meals for the new day
+      hasLoadedMealsRef.current = false;
+    }
+    
+    // Load fresh meal history
+    loadMealHistory();
+  }, [lastResetDate, loadMealHistory]);
+
+  // Set up interval to check for date changes (in case app stays open across midnight)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentDate = new Date().toDateString();
+      if (currentDate !== lastResetDate) {
+        // New day detected - reset daily state
+        setTodayCalories(0);
+        setTodayProtein(0);
+        setMealHistory([]);
+        setLastResetDate(currentDate);
+        
+        // Force reload of meals for the new day
+        hasLoadedMealsRef.current = false;
+        loadMealHistory();
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [lastResetDate, loadMealHistory]);
+
+  // Load user profile and check onboarding status
+  useEffect(() => {
+    if (user && !hasLoadedProfileRef.current) {
+      hasLoadedProfileRef.current = true;
+      loadUserProfile();
+    }
+
+    // Load meal history from PocketBase when component mounts
+    if (!hasLoadedMealsRef.current) {
+      hasLoadedMealsRef.current = true;
+      loadMealHistory();
+    }
+  }, [user, loadMealHistory, loadUserProfile]);
+
+  if (isLoadingProfile) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin mx-auto mb-4 border-4 border-primary border-t-transparent rounded-full" />
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isOnboarded) {
-    return <OnboardingModal onComplete={handleOnboardingComplete} />
+    return <OnboardingModal open={true} onComplete={handleOnboardingComplete} />;
   }
 
-  const calorieProgress = userGoals ? (todayCalories / userGoals.calories) * 100 : 0
-  const proteinProgress = userGoals ? (todayProtein / userGoals.protein) * 100 : 0
-  const isCalorieGoalMet = calorieProgress >= 100
-  const isProteinGoalMet = proteinProgress >= 100
+  if (showProfile) {
+    return <ProfilePage onBack={() => setShowProfile(false)} />;
+  }
 
-  const todayMeals = mealHistory.filter((meal) => new Date(meal.timestamp).toDateString() === new Date().toDateString())
+  if (showWeeklyHistory) {
+    return <WeeklyHistoryPage onBack={() => setShowWeeklyHistory(false)} userGoals={userGoals} />;
+  }
+
+  const calorieProgress = userGoals
+    ? (todayCalories / userGoals.target_calories) * 100
+    : 0;
+  const proteinProgress = userGoals
+    ? (todayProtein / userGoals.target_protein_g) * 100
+    : 0;
+  const isCalorieGoalMet = calorieProgress >= 100;
+  const isProteinGoalMet = proteinProgress >= 100;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20">
+    <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 shadow-sm border-b dark:border-gray-800">
+      <div className="bg-card shadow-sm border-b border-border">
         <div className="max-w-md mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CalorieMate</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Your personal nutrition assistant</p>
+                <h1 className="text-2xl font-bold text-foreground">
+                  CalorieMate
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your personal nutrition assistant
+                </p>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowWeeklyHistory(true)}
+                title="Weekly History"
+              >
+                <History className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowProfile(true)}
+                title="Profile"
+              >
+                <User className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -246,7 +545,7 @@ export default function CalorieTracker() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Target className="h-5 w-5 text-blue-600" />
+              <Target className="h-5 w-5 text-primary" />
               Today's Progress
             </CardTitle>
           </CardHeader>
@@ -254,10 +553,12 @@ export default function CalorieTracker() {
             {/* Calories */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Calories</span>
+                <span className="text-sm font-medium text-foreground">
+                  Calories
+                </span>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold">
-                    {todayCalories} / {userGoals?.calories}
+                    {todayCalories} / {userGoals.target_calories}
                   </span>
                   {isCalorieGoalMet && (
                     <Badge variant="secondary" className="text-xs">
@@ -266,16 +567,21 @@ export default function CalorieTracker() {
                   )}
                 </div>
               </div>
-              <Progress value={Math.min(calorieProgress, 100)} className="h-2" />
+              <Progress
+                value={Math.min(calorieProgress, 100)}
+                className="h-2"
+              />
             </div>
 
             {/* Protein */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Protein</span>
+                <span className="text-sm font-medium text-foreground">
+                  Protein
+                </span>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold">
-                    {todayProtein}g / {userGoals?.protein}g
+                    {todayProtein}g / {userGoals?.target_protein_g}g
                   </span>
                   {isProteinGoalMet && (
                     <Badge variant="secondary" className="text-xs">
@@ -284,67 +590,141 @@ export default function CalorieTracker() {
                   )}
                 </div>
               </div>
-              <Progress value={Math.min(proteinProgress, 100)} className="h-2" />
+              <Progress
+                value={Math.min(proteinProgress, 100)}
+                className="h-2"
+              />
             </div>
           </CardContent>
         </Card>
 
         {/* Weekly Activity */}
-        <WeeklyActivity mealHistory={mealHistory} userGoals={userGoals} />
+        {/* <WeeklyActivity mealHistory={mealHistory} userGoals={userGoals} />*/}
 
         {/* Add Meal Button */}
-        <Card className="border-dashed border-2 border-gray-300 hover:border-blue-400 transition-colors">
+        <Card className="border-dashed border-2 border-muted-foreground/30 hover:border-primary/50 transition-colors">
           <CardContent className="p-6">
             <div className="text-center space-y-4">
-              <div className="mx-auto w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
-                <Plus className="h-6 w-6 text-blue-600" />
+              <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <Plus className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-medium text-gray-900 dark:text-white mb-1">Log Your Meal</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Take a photo to get started</p>
+                <h3 className="font-medium text-foreground mb-1">
+                  Log Your Meal
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Take a photo to get started
+                </p>
               </div>
               <div className="space-y-2">
-                <Button onClick={handleCameraCapture} className="w-full" size="lg">
+                <Button
+                  onClick={handleCameraCapture}
+                  className="w-full"
+                  size="lg"
+                >
                   <Camera className="h-4 w-4 mr-2" />
                   Take Photo
                 </Button>
-                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full" size="lg">
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full"
+                  size="lg"
+                >
                   <Upload className="h-4 w-4 mr-2" />
                   Upload Image
                 </Button>
               </div>
+
+              {/* Show selected image preview */}
+              {selectedImage && (
+                <div className="pt-4 border-t">
+                  <div className="aspect-square w-32 mx-auto rounded-lg overflow-hidden bg-gray-100 mb-3">
+                    <img
+                      src={URL.createObjectURL(selectedImage)}
+                      alt="Selected meal"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {selectedImage.name}
+                  </p>
+                </div>
+              )}
+
+              {/* Meal description textarea */}
+              <div className="space-y-2 text-left">
+                <Label htmlFor="meal-description" className="text-sm font-medium">
+                  Meal Description (Optional)
+                </Label>
+                <Textarea
+                  id="meal-description"
+                  placeholder="Describe your meal, ingredients, or any additional context..."
+                  value={mealDescription}
+                  onChange={(e) => setMealDescription(e.target.value)}
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+
+              {/* Submit button - only show when image is selected */}
+              {selectedImage && (
+                <Button
+                  onClick={handleMealSubmission}
+                  className="w-full"
+                  size="lg"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Submit Meal for Analysis
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Today's Meals */}
-        {todayMeals.length > 0 && (
+        {mealHistory.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <Zap className="h-5 w-5 text-orange-500" />
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Zap className="h-5 w-5 text-accent" />
               Today's Meals
             </h2>
-            {todayMeals.map((meal) => (
-              <MealHistoryCard key={meal.id} meal={meal} onClick={() => handleMealClick(meal)} />
+            {mealHistory.map((meal) => (
+              <MealHistoryCard
+                key={meal.id}
+                meal={meal}
+                onClick={() => handleMealClick(meal)}
+                onMealRemoved={loadMealHistory}
+              />
             ))}
           </div>
         )}
       </div>
 
       {/* Hidden file input */}
-      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileUpload}
+        className="hidden"
+      />
 
       {/* Meal Review Modal */}
-      {showMealReview && selectedMeal && (
+      {selectedMeal && (
         <MealReviewModal
           meal={selectedMeal}
+          open={showMealReview}
+          mode={mealReviewMode}
           onMealConfirmed={handleMealConfirmed}
+          onSimilarMealSelected={handleSimilarMealSelected}
+          onMealRemoved={loadMealHistory}
           onClose={() => {
-            setShowMealReview(false)
-            setSelectedMeal(null)
+            setShowMealReview(false);
+            setSelectedMeal(null);
           }}
         />
       )}
     </div>
-  )
+  );
 }
