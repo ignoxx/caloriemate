@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Calendar, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -196,37 +196,48 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
     setCurrentWeekStart(newWeekStart);
   };
 
-  const getStatusBadge = (status: DayData['calorieStatus'] | DayData['proteinStatus'], type: 'calorie' | 'protein') => {
-    if (status === 'none') {
-      return <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">No data</Badge>;
-    }
-
-    if (type === 'calorie') {
-      switch (status) {
-        case 'perfect':
-          return <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">Perfect</Badge>;
-        case 'slight-over':
-          return <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">Close</Badge>;
-        case 'over':
-          return <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">Over</Badge>;
-        case 'way-over':
-          return <Badge variant="secondary" className="text-xs bg-red-100 text-red-700">Way over</Badge>;
-        case 'under':
-          return <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">Under</Badge>;
-        default:
-          return <Badge variant="secondary" className="text-xs">-</Badge>;
-      }
-    } else {
-      switch (status) {
-        case 'perfect':
-          return <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">Great</Badge>;
-        case 'close':
-          return <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">Close</Badge>;
-        case 'under':
-          return <Badge variant="secondary" className="text-xs bg-red-100 text-red-700">Low</Badge>;
-        default:
-          return <Badge variant="secondary" className="text-xs">-</Badge>;
-      }
+  const getStatusBadge = (status: DayData['calorieStatus'] | DayData['proteinStatus']) => {
+    switch (status) {
+      case 'perfect':
+        return (
+          <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 hover:bg-green-100 px-1.5 py-0.5">
+            <ThumbsUp className="h-3 w-3" />
+            <ThumbsUp className="h-3 w-3 -ml-1" />
+          </Badge>
+        );
+      case 'slight-over':
+      case 'close':
+        return (
+          <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700 hover:bg-yellow-100 px-1.5 py-0.5">
+            <ThumbsUp className="h-3 w-3" />
+          </Badge>
+        );
+      case 'over':
+      case 'under':
+        return (
+          <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 hover:bg-orange-100 px-1.5 py-0.5">
+            <ThumbsDown className="h-3 w-3" />
+          </Badge>
+        );
+      case 'way-over':
+        return (
+          <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 hover:bg-red-100 px-1.5 py-0.5">
+            <ThumbsDown className="h-3 w-3" />
+            <ThumbsDown className="h-3 w-3 -ml-1" />
+          </Badge>
+        );
+      case 'none':
+        return (
+          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600 hover:bg-gray-100 px-1.5 py-0.5">
+            <Minus className="h-3 w-3" />
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="secondary" className="text-xs hover:bg-secondary px-1.5 py-0.5">
+            <Minus className="h-3 w-3" />
+          </Badge>
+        );
     }
   };
 
@@ -355,7 +366,7 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
                                 <span className="text-sm font-medium">
                                   {dayData.totalCalories}
                                 </span>
-                                {getStatusBadge(dayData.calorieStatus, 'calorie')}
+                                {getStatusBadge(dayData.calorieStatus)}
                               </div>
                             </div>
                             
@@ -365,7 +376,7 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
                                 <span className="text-sm font-medium">
                                   {dayData.totalProtein}g
                                 </span>
-                                {getStatusBadge(dayData.proteinStatus, 'protein')}
+                                {getStatusBadge(dayData.proteinStatus)}
                               </div>
                             </div>
                           </div>
@@ -379,32 +390,7 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
           </div>
         )}
 
-        {/* Legend */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Status Legend</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <p className="text-sm font-medium text-foreground mb-2">Calories</p>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">Perfect</Badge>
-                <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">Close</Badge>
-                <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">Over</Badge>
-                <Badge variant="secondary" className="text-xs bg-red-100 text-red-700">Way over</Badge>
-              </div>
-            </div>
-            
-            <div>
-              <p className="text-sm font-medium text-foreground mb-2">Protein</p>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">Great</Badge>
-                <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">Close</Badge>
-                <Badge variant="secondary" className="text-xs bg-red-100 text-red-700">Low</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+
       </div>
     </div>
   );
