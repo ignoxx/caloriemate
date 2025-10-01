@@ -1,5 +1,5 @@
 import type React from "react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Camera, Upload, Plus, Target, Zap, Send, User } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
@@ -37,27 +37,14 @@ export default function CalorieTracker() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [lastResetDate, setLastResetDate] = useState<string>(new Date().toDateString());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasLoadedMealsRef = useRef(false);
   const hasLoadedProfileRef = useRef(false);
   const { user } = useAuth();
 
-  // Load user profile and check onboarding status
-  useEffect(() => {
-    if (user && !hasLoadedProfileRef.current) {
-      hasLoadedProfileRef.current = true;
-      loadUserProfile();
-    }
-
-    // Load meal history from PocketBase when component mounts
-    if (!hasLoadedMealsRef.current) {
-      hasLoadedMealsRef.current = true;
-      loadMealHistory();
-    }
-  }, [user]);
-
   // Load user profile from database
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
     try {
       if (!user) return;
 
@@ -93,10 +80,10 @@ export default function CalorieTracker() {
     } finally {
       setIsLoadingProfile(false);
     }
-  };
+  }, [user]);
 
   // Load meal history from PocketBase
-  const loadMealHistory = async () => {
+  const loadMealHistory = useCallback(async () => {
     try {
       const records = await pb.collection("meal_history").getList(1, 50, {
         sort: "-created",
@@ -136,6 +123,14 @@ export default function CalorieTracker() {
         };
       });
 
+      // Filter meals to ensure only today's meals (client-side backup)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todaysMeals = meals.filter(meal => {
+        const mealDate = new Date(meal.created);
+        return mealDate >= todayStart;
+      });
+
       // Preserve any optimistic entries (those with temp IDs) and merge with real data
       setMealHistory(prevHistory => {
         const optimisticEntries = prevHistory.filter(meal => meal.id.startsWith('temp_'));
@@ -143,15 +138,15 @@ export default function CalorieTracker() {
         // Remove optimistic entries that have been replaced by real entries
         const validOptimisticEntries = optimisticEntries.filter(optimistic => {
           // If we have a real meal with the same mealTemplateId, remove the optimistic one
-          return !optimistic.mealTemplateId || !meals.some(real => real.mealTemplateId === optimistic.mealTemplateId);
+          return !optimistic.mealTemplateId || !todaysMeals.some(real => real.mealTemplateId === optimistic.mealTemplateId);
         });
 
         // Combine optimistic entries with real meals, sorted by created date
-        const combinedMeals = [...validOptimisticEntries, ...meals]
+        const combinedMeals = [...validOptimisticEntries, ...todaysMeals]
           .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
 
         // Check for newly completed meals that should trigger review modal
-        const newlyCompletedMeals = meals.filter(meal => {
+        const newlyCompletedMeals = todaysMeals.filter(meal => {
           const wasProcessing = prevHistory.some(prevMeal => 
             prevMeal.mealTemplateId === meal.mealTemplateId && 
             prevMeal.processingStatus === "processing"
@@ -171,17 +166,17 @@ export default function CalorieTracker() {
       });
 
       // Calculate today's totals (only from completed real meals)
-      // Use the same meals that were loaded (which are already filtered to today)
-      const todayMeals = meals.filter(
+      // Use the filtered today's meals and only include completed ones
+      const completedTodayMeals = todaysMeals.filter(
         (meal: MealEntry) =>
           meal.processingStatus === "completed",
       );
 
-      const totalCalories = todayMeals.reduce(
+      const totalCalories = completedTodayMeals.reduce(
         (sum, meal) => sum + meal.totalCalories,
         0,
       );
-      const totalProtein = todayMeals.reduce(
+      const totalProtein = completedTodayMeals.reduce(
         (sum, meal) => sum + meal.totalProteinG,
         0,
       );
@@ -191,7 +186,7 @@ export default function CalorieTracker() {
     } catch (error) {
       console.error("Failed to load meal history:", error);
     }
-  };
+  }, []);
 
   // Poll for processing status updates
   useEffect(() => {
@@ -206,7 +201,7 @@ export default function CalorieTracker() {
 
       return () => clearInterval(interval);
     }
-  }, [mealHistory]);
+  }, [mealHistory, loadMealHistory]);
 
   const handleOnboardingComplete = async (data: OnboardingData) => {
     try {
@@ -419,6 +414,61 @@ export default function CalorieTracker() {
     setShowMealReview(false);
     setSelectedMeal(null);
   };
+
+  // Check for daily reset and clear old data on mount
+  useEffect(() => {
+    const currentDate = new Date().toDateString();
+    
+    // Always clear meal history on component mount to ensure fresh start
+    setMealHistory([]);
+    setTodayCalories(0);
+    setTodayProtein(0);
+    
+    if (currentDate !== lastResetDate) {
+      // New day detected - update the reset date
+      setLastResetDate(currentDate);
+      
+      // Force reload of meals for the new day
+      hasLoadedMealsRef.current = false;
+    }
+    
+    // Load fresh meal history
+    loadMealHistory();
+  }, [lastResetDate, loadMealHistory]);
+
+  // Set up interval to check for date changes (in case app stays open across midnight)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentDate = new Date().toDateString();
+      if (currentDate !== lastResetDate) {
+        // New day detected - reset daily state
+        setTodayCalories(0);
+        setTodayProtein(0);
+        setMealHistory([]);
+        setLastResetDate(currentDate);
+        
+        // Force reload of meals for the new day
+        hasLoadedMealsRef.current = false;
+        loadMealHistory();
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [lastResetDate, loadMealHistory]);
+
+  // Load user profile and check onboarding status
+  useEffect(() => {
+    if (user && !hasLoadedProfileRef.current) {
+      hasLoadedProfileRef.current = true;
+      loadUserProfile();
+    }
+
+    // Load meal history from PocketBase when component mounts
+    if (!hasLoadedMealsRef.current) {
+      hasLoadedMealsRef.current = true;
+      loadMealHistory();
+    }
+  }, [user, loadMealHistory, loadUserProfile]);
 
   if (isLoadingProfile) {
     return (
