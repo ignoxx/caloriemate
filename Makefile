@@ -13,6 +13,7 @@ reset:
 setup-su:
 	@go run . superuser upsert test@test.com test12345
 
+# Run application and create a regular user before running this
 fe-pb-types:
 	@npx pocketbase-typegen --url http://localhost:8090 --email test@test.com --password 'test12345' --out frontend/src/types/pocketbase-types.ts
 
