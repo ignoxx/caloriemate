@@ -30,6 +30,7 @@ interface MealReviewModalProps {
   onMealConfirmed?: (meal: MealEntry) => void; // Optional for existing meals
   onSimilarMealSelected?: (similarMeal: SimilarMeal) => void; // Optional for existing meals
   onMealRemoved?: () => void; // New: for removing existing meals
+  onMealUpdated?: (meal: MealEntry) => void; // New: for updating existing meals
   onClose: () => void;
   mode?: 'review' | 'view'; // New: determines if this is for new meal review or existing meal view
 }
@@ -40,6 +41,7 @@ export function MealReviewModal({
   onMealConfirmed,
   onSimilarMealSelected,
   onMealRemoved,
+  onMealUpdated,
   onClose,
   mode = 'review',
 }: MealReviewModalProps) {
@@ -58,6 +60,7 @@ export function MealReviewModal({
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   useEffect(() => {
@@ -174,6 +177,70 @@ export function MealReviewModal({
       // TODO: Show error toast
     } finally {
       setIsRemoving(false);
+    }
+  };
+
+  const handleUpdateMeal = async () => {
+    if (!onMealUpdated || !meal.mealHistoryId || !meal.mealTemplateId) return;
+
+    setIsUpdating(true);
+    try {
+      // Get the template values (base values before any adjustments)
+      const template = await pb.collection('meal_templates').getOne(meal.mealTemplateId);
+      const portionMultiplier = meal.portionMultiplier || 1;
+      
+      // Calculate adjustments as deltas from template values
+      const calorieAdjustment = showCustomForm 
+        ? parseInt(customCalories) - (template.total_calories * portionMultiplier)
+        : (meal.calorieAdjustment || 0);
+      const proteinAdjustment = showCustomForm
+        ? parseInt(customProtein) - (template.total_protein_g * portionMultiplier)
+        : (meal.proteinAdjustment || 0);
+      const carbAdjustment = showCustomForm
+        ? parseInt(customCarbs) - (template.total_carbs_g * portionMultiplier)
+        : (meal.carbAdjustment || 0);
+      const fatAdjustment = showCustomForm
+        ? parseInt(customFat) - (template.total_fat_g * portionMultiplier)
+        : (meal.fatAdjustment || 0);
+
+      // Update meal_history with adjustments
+      await pb.collection('meal_history').update(meal.mealHistoryId, {
+        calorie_adjustment: calorieAdjustment,
+        protein_adjustment: proteinAdjustment,
+        carb_adjustment: carbAdjustment,
+        fat_adjustment: fatAdjustment,
+      });
+
+      // If name or description changed, update the template
+      if (showCustomForm && (customName !== meal.name || description !== meal.aiDescription)) {
+        await pb.collection('meal_templates').update(meal.mealTemplateId, {
+          name: customName,
+          ai_description: description,
+        });
+      }
+
+      // Create updated meal object for the callback
+      const updatedMeal: MealEntry = {
+        ...meal,
+        name: showCustomForm ? customName : meal.name,
+        totalCalories: showCustomForm ? parseInt(customCalories) : meal.totalCalories,
+        totalProteinG: showCustomForm ? parseInt(customProtein) : meal.totalProteinG,
+        totalCarbsG: showCustomForm ? parseInt(customCarbs) : meal.totalCarbsG,
+        totalFatG: showCustomForm ? parseInt(customFat) : meal.totalFatG,
+        aiDescription: description,
+        calorieAdjustment,
+        proteinAdjustment,
+        carbAdjustment,
+        fatAdjustment,
+      };
+
+      onMealUpdated(updatedMeal);
+      onClose();
+    } catch (error) {
+      console.error('Failed to update meal:', error);
+      // TODO: Show error toast
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -493,6 +560,29 @@ export function MealReviewModal({
             <Button onClick={handleConfirmMeal} className="w-full" size="lg">
               Confirm Meal
             </Button>
+          ) : showCustomForm ? (
+            <div className="flex gap-2">
+              <DrawerClose asChild>
+                <Button variant="outline" className="w-full" size="lg">
+                  Cancel
+                </Button>
+              </DrawerClose>
+              <Button 
+                onClick={handleUpdateMeal} 
+                className="w-full" 
+                size="lg"
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </div>
           ) : (
             <DrawerClose asChild>
               <Button variant="outline" className="w-full" size="lg">

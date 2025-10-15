@@ -21,6 +21,11 @@ export interface MealEntry {
   updated: string;
   linkedMealTemplateId?: string;
   isPrimaryInGroup?: boolean;
+  portionMultiplier?: number;
+  calorieAdjustment?: number;
+  proteinAdjustment?: number;
+  carbAdjustment?: number;
+  fatAdjustment?: number;
 }
 
 export interface SimilarMeal {

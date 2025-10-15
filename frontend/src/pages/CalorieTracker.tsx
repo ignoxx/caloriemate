@@ -163,6 +163,12 @@ export default function CalorieTracker() {
             (mealTemplate?.linked_meal_template_id as string) || undefined,
           isPrimaryInGroup:
             (mealTemplate?.is_primary_in_group as boolean) || false,
+          // Add adjustment and portion information
+          portionMultiplier,
+          calorieAdjustment: (recordData.calorie_adjustment as number) || 0,
+          proteinAdjustment: (recordData.protein_adjustment as number) || 0,
+          carbAdjustment: (recordData.carb_adjustment as number) || 0,
+          fatAdjustment: (recordData.fat_adjustment as number) || 0,
         };
       });
 
@@ -443,10 +449,39 @@ export default function CalorieTracker() {
 
   const handleMealConfirmed = async (confirmedMeal: MealEntry) => {
     try {
-      // Update the meal status in PocketBase
-      await pb.collection("meal_history").update(confirmedMeal.id, {
-        processingStatus: "completed",
-      });
+      // Get the original template values to calculate adjustments
+      if (confirmedMeal.mealTemplateId) {
+        const template = await pb.collection('meal_templates').getOne(confirmedMeal.mealTemplateId);
+        const portionMultiplier = confirmedMeal.portionMultiplier || 1;
+        
+        // Calculate adjustments as deltas from template values
+        const calorieAdjustment = confirmedMeal.totalCalories - (template.total_calories * portionMultiplier);
+        const proteinAdjustment = confirmedMeal.totalProteinG - (template.total_protein_g * portionMultiplier);
+        const carbAdjustment = confirmedMeal.totalCarbsG - (template.total_carbs_g * portionMultiplier);
+        const fatAdjustment = confirmedMeal.totalFatG - (template.total_fat_g * portionMultiplier);
+
+        // Update meal_history with adjustments and mark as completed
+        await pb.collection("meal_history").update(confirmedMeal.id, {
+          processingStatus: "completed",
+          calorie_adjustment: calorieAdjustment,
+          protein_adjustment: proteinAdjustment,
+          carb_adjustment: carbAdjustment,
+          fat_adjustment: fatAdjustment,
+        });
+
+        // If name or description changed, update the template
+        if (confirmedMeal.name !== template.name || confirmedMeal.aiDescription !== template.ai_description) {
+          await pb.collection('meal_templates').update(confirmedMeal.mealTemplateId, {
+            name: confirmedMeal.name,
+            ai_description: confirmedMeal.aiDescription,
+          });
+        }
+      } else {
+        // Fallback if no template ID (shouldn't happen)
+        await pb.collection("meal_history").update(confirmedMeal.id, {
+          processingStatus: "completed",
+        });
+      }
 
       // Refresh meal history
       await loadMealHistory();
@@ -792,6 +827,7 @@ export default function CalorieTracker() {
           onMealConfirmed={handleMealConfirmed}
           onSimilarMealSelected={handleSimilarMealSelected}
           onMealRemoved={loadMealHistory}
+          onMealUpdated={loadMealHistory}
           onClose={() => {
             setShowMealReview(false);
             setSelectedMeal(null);
