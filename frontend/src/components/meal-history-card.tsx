@@ -1,6 +1,14 @@
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Clock, Edit, Loader2, CheckCircle, AlertCircle, Link as LinkIcon, X } from "lucide-react";
+import {
+  Clock,
+  Edit,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Link as LinkIcon,
+  X,
+} from "lucide-react";
 import { MealEntry } from "../types/meal";
 import { useState } from "react";
 import pb from "../lib/pocketbase";
@@ -11,7 +19,11 @@ interface MealHistoryCardProps {
   onMealRemoved?: () => void;
 }
 
-export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCardProps) {
+export function MealHistoryCard({
+  meal,
+  onClick,
+  onMealRemoved,
+}: MealHistoryCardProps) {
   const [isRemoving, setIsRemoving] = useState(false);
 
   const timeString = new Date(meal.created).toLocaleTimeString("en-US", {
@@ -60,31 +72,37 @@ export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCar
 
   const handleRemoveMeal = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
-    
-    if (!confirm("Remove this meal from today's list? The meal will be kept in your templates.")) {
+
+    if (
+      !confirm(
+        "Remove this meal from today's list? The meal will be kept in your templates.",
+      )
+    ) {
       return;
     }
 
     setIsRemoving(true);
-    
+
     try {
       const response = await fetch(
         `${pb.baseUrl}/api/collections/meal_history/records/${meal.mealHistoryId}/hide`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': pb.authStore.token ? `Bearer ${pb.authStore.token}` : '',
+            Authorization: pb.authStore.token
+              ? `Bearer ${pb.authStore.token}`
+              : "",
           },
-        }
+        },
       );
 
       if (!response.ok) {
-        throw new Error('Failed to remove meal');
+        throw new Error("Failed to remove meal");
       }
 
       onMealRemoved?.();
     } catch (error) {
-      console.error('Failed to remove meal:', error);
+      console.error("Failed to remove meal:", error);
       // TODO: Show error toast
     } finally {
       setIsRemoving(false);
@@ -95,7 +113,7 @@ export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCar
 
   return (
     <Card
-      className={`transition-shadow ${isClickable ? "hover:shadow-md cursor-pointer hover:bg-accent/50" : ""}`}
+      className={`transition-shadow ${isClickable ? "hover:shadow-md cursor-pointer" : ""}`}
       onClick={isClickable ? onClick : undefined}
     >
       <CardContent className="p-4">
@@ -115,27 +133,8 @@ export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCar
               <h3 className="font-medium text-sm text-foreground truncate pr-2">
                 {meal.name}
               </h3>
-               <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {getStatusIcon()}
-                {meal.processingStatus === "completed" && (
-                  <>
-                    <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button 
-                      onClick={handleRemoveMeal}
-                      disabled={isRemoving}
-                      className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50"
-                      title="Remove from today's meals"
-                    >
-                      {isRemoving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <X className="h-4 w-4" />
-                      )}
-                    </button>
-                  </>
-                )}
               </div>
             </div>
 
@@ -165,18 +164,24 @@ export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCar
                   protein
                 </Badge>
                 {meal.linkedMealTemplateId && (
-                  <Badge variant="outline" className="text-xs text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
+                  <Badge
+                    variant="outline"
+                    className="text-xs text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800"
+                  >
                     <LinkIcon className="h-3 w-3 mr-1" />
                     Linked meal
                   </Badge>
                 )}
-                 {meal.isPrimaryInGroup && (
-                   <Badge variant="outline" className="text-xs text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
-                     Primary in group
-                   </Badge>
-                 )}
-               </div>
-             ) : (
+                {meal.isPrimaryInGroup && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800"
+                  >
+                    Primary in group
+                  </Badge>
+                )}
+              </div>
+            ) : (
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="destructive" className="text-xs">
                   {getStatusText()}
@@ -188,12 +193,6 @@ export function MealHistoryCard({ meal, onClick, onMealRemoved }: MealHistoryCar
               <Clock className="h-3 w-3" />
               {timeString}
             </div>
-
-            {meal.aiDescription && meal.processingStatus === "completed" && (
-              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                {meal.aiDescription}
-              </p>
-            )}
           </div>
         </div>
       </CardContent>

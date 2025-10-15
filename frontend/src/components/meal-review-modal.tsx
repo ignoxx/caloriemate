@@ -12,31 +12,17 @@ import {
   DrawerFooter,
   DrawerClose,
 } from "./ui/drawer";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
 
-import { X, CheckCircle, Plus, Repeat, Trash2, Link as LinkIcon, Loader2 } from "lucide-react";
+import { X, CheckCircle, Plus, Repeat, Trash2, Link as LinkIcon, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { MealEntry, SimilarMeal } from "../types/meal";
 import { MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 import { fetchSimilarMeals } from "../lib/pocketbase";
 import pb from "../lib/pocketbase";
-
-// interface MealEntry {
-//   id: string;
-//   meal_name: string;
-//   aiDescription: string;
-//   totalCalories: number;
-//   calorieUncertaintyPercent: number;
-//   totalProteinG: number;
-//   proteinUncertaintyPercent: number;
-//   totalCarbsG: number;
-//   carbsUncertaintyPercent: number;
-//   totalFatG: number;
-//   fatUncertaintyPercent: number;
-//   analysisNotes: string;
-//   imageUrl?: string;
-//   processing_status: "pending" | "processing" | "completed" | "failed";
-//   created: string;
-//   updated: string;
-// }
 
 interface MealReviewModalProps {
   meal: MealEntry;
@@ -72,13 +58,15 @@ export function MealReviewModal({
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   useEffect(() => {
     const loadSimilarMeals = async () => {
       try {
         // For existing meals, use mealTemplateId if available, otherwise use id
         const templateId = meal.mealTemplateId || meal.id;
-        const similar = await fetchSimilarMeals(templateId);
+        let similar = await fetchSimilarMeals(templateId);
+        similar = similar.filter((meal) => Math.round((1 - meal.distance) * 100) >= 70)
         setSimilarMeals(similar);
       } catch (error) {
         console.error("Failed to load similar meals:", error);
@@ -103,7 +91,7 @@ export function MealReviewModal({
       setIsLinking(true);
       try {
         const response = await fetch(
-          `${pb.baseUrl}/api/collections/meal_history/records/${meal.mealHistoryId}/link`,
+          `${pb.baseURL}/api/collections/meal_history/records/${meal.mealHistoryId}/link`,
           {
             method: 'POST',
             headers: {
@@ -134,7 +122,7 @@ export function MealReviewModal({
 
   const handleConfirmMeal = () => {
     if (!onMealConfirmed) return;
-    
+
     const confirmedMeal: MealEntry = {
       ...meal,
       name: showCustomForm ? customName : meal.name,
@@ -157,16 +145,16 @@ export function MealReviewModal({
 
   const handleRemoveMeal = async () => {
     if (!meal.mealHistoryId || !onMealRemoved) return;
-    
+
     if (!confirm("Remove this meal from today's list? The meal will be kept in your templates.")) {
       return;
     }
 
     setIsRemoving(true);
-    
+
     try {
       const response = await fetch(
-        `${pb.baseUrl}/api/collections/meal_history/records/${meal.mealHistoryId}/hide`,
+        `${pb.baseURL}/api/collections/meal_history/records/${meal.mealHistoryId}/hide`,
         {
           method: 'POST',
           headers: {
@@ -280,9 +268,38 @@ export function MealReviewModal({
                   </div>
                 </div>
                 {meal.aiDescription && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {meal.aiDescription}
-                  </p>
+                  <div className="mt-2">
+                    <Collapsible open={isDescriptionExpanded} onOpenChange={setIsDescriptionExpanded}>
+                      <div className="text-xs text-muted-foreground">
+                        {!isDescriptionExpanded && meal.aiDescription.length > 150 ? (
+                          <p>
+                            {meal.aiDescription.slice(0, 150)}...
+                          </p>
+                        ) : (
+                          <CollapsibleContent>
+                            <p>{meal.aiDescription}</p>
+                          </CollapsibleContent>
+                        )}
+                      </div>
+                      {meal.aiDescription.length > 150 && (
+                        <CollapsibleTrigger asChild>
+                          <button className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 mt-1">
+                            {isDescriptionExpanded ? (
+                              <>
+                                Show less
+                                <ChevronUp className="h-3 w-3" />
+                              </>
+                            ) : (
+                              <>
+                                Show more
+                                <ChevronDown className="h-3 w-3" />
+                              </>
+                            )}
+                          </button>
+                        </CollapsibleTrigger>
+                      )}
+                    </Collapsible>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -299,7 +316,7 @@ export function MealReviewModal({
                 {similarMeals.slice(0, 3).map((similarMeal) => (
                   <Card
                     key={similarMeal.id}
-                    className="cursor-pointer transition-colors hover:bg-accent/50 border-dashed"
+                    className="cursor-pointer transition-colors border-dashed"
                   >
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between">

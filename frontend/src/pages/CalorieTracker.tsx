@@ -1,6 +1,15 @@
 import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Camera, Upload, Plus, Target, Zap, Send, User, History } from "lucide-react";
+import {
+  Camera,
+  Upload,
+  Plus,
+  Target,
+  Zap,
+  Send,
+  User,
+  History,
+} from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -15,7 +24,6 @@ import { Label } from "../components/ui/label";
 import { OnboardingModal } from "../components/onboarding-modal";
 import { MealReviewModal } from "../components/meal-review-modal";
 import { MealHistoryCard } from "../components/meal-history-card";
-// import { WeeklyActivity } from "../components/weekly-activity";
 import { useAuth } from "../contexts/AuthContext";
 import ProfilePage from "./ProfilePage";
 import WeeklyHistoryPage from "./WeeklyHistoryPage";
@@ -31,7 +39,9 @@ export default function CalorieTracker() {
   const [todayCalories, setTodayCalories] = useState(0);
   const [todayProtein, setTodayProtein] = useState(0);
   const [showMealReview, setShowMealReview] = useState(false);
-  const [mealReviewMode, setMealReviewMode] = useState<'review' | 'view'>('review');
+  const [mealReviewMode, setMealReviewMode] = useState<"review" | "view">(
+    "review",
+  );
   const [selectedMeal, setSelectedMeal] = useState<MealEntry | null>(null);
   const [mealHistory, setMealHistory] = useState<MealEntry[]>([]);
   const [mealDescription, setMealDescription] = useState("");
@@ -39,7 +49,9 @@ export default function CalorieTracker() {
   const [showProfile, setShowProfile] = useState(false);
   const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [lastResetDate, setLastResetDate] = useState<string>(new Date().toDateString());
+  const [lastResetDate, setLastResetDate] = useState<string>(
+    new Date().toDateString(),
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hasLoadedMealsRef = useRef(false);
   const hasLoadedProfileRef = useRef(false);
@@ -52,7 +64,7 @@ export default function CalorieTracker() {
 
       setIsLoadingProfile(true);
       console.log("Loading user profile for user:", user.id);
-      
+
       const records = await pb.collection("user_profiles").getList(1, 1, {
         filter: `user = "${user.id}"`,
       });
@@ -87,19 +99,25 @@ export default function CalorieTracker() {
   // Load meal history from PocketBase
   const loadMealHistory = useCallback(async () => {
     try {
-      const records = await pb.collection("meal_history").getList(1, 50, {
+      const records = await pb.collection("meal_history").getList(1, 20, {
         sort: "-created",
-        created: `>${new Date(new Date().setHours(0, 0, 0, 0)).toISOString()}`,
         expand: "meal", // Expand the meal relation to get nutrition data
-        filter: `adjustments != 'hidden'`, // Filter out hidden meals (using adjustments field)
+        filter: pb.filter(
+          "adjustments != {:adjustment} && created > {:today}",
+          {
+            today: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
+            adjustment: "hidden",
+          },
+        ),
       });
 
       const meals: MealEntry[] = records.items.map((record) => {
         const recordData = record as Record<string, unknown>;
         const expandData = recordData.expand as Record<string, unknown>;
         const mealTemplate = expandData?.meal as Record<string, unknown>;
-        const portionMultiplier = (recordData.portion_multiplier as number) || 1.0;
-        
+        const portionMultiplier =
+          (recordData.portion_multiplier as number) || 1.0;
+
         return {
           id: record.id,
           mealHistoryId: record.id,
@@ -107,51 +125,86 @@ export default function CalorieTracker() {
           name: (mealTemplate?.name as string) || "Unknown Meal",
           userContext: (mealTemplate?.description as string) || "",
           aiDescription: (mealTemplate?.ai_description as string) || "",
-          totalCalories: Math.round(((mealTemplate?.total_calories as number) || 0) * portionMultiplier + ((recordData.calorie_adjustment as number) || 0)),
-          calorieUncertaintyPercent: (mealTemplate?.calorie_uncertainty_percent as number) || 0,
-          totalProteinG: Math.round(((mealTemplate?.total_protein_g as number) || 0) * portionMultiplier + ((recordData.protein_adjustment as number) || 0)),
-          proteinUncertaintyPercent: (mealTemplate?.protein_uncertainty_percent as number) || 0,
-          totalCarbsG: Math.round(((mealTemplate?.total_carbs_g as number) || 0) * portionMultiplier + ((recordData.carb_adjustment as number) || 0)),
-          carbsUncertaintyPercent: (mealTemplate?.carbs_uncertainty_percent as number) || 0,
-          totalFatG: Math.round(((mealTemplate?.total_fat_g as number) || 0) * portionMultiplier + ((recordData.fat_adjustment as number) || 0)),
-          fatUncertaintyPercent: (mealTemplate?.fat_uncertainty_percent as number) || 0,
-          imageUrl: mealTemplate?.image ? `${pb.baseURL}/api/files/meal_templates/${mealTemplate.id}/${mealTemplate.image}` : undefined,
-          processingStatus: ((mealTemplate?.processing_status as string) || "pending") as MealTemplatesProcessingStatusOptions,
+          totalCalories: Math.round(
+            ((mealTemplate?.total_calories as number) || 0) *
+              portionMultiplier +
+              ((recordData.calorie_adjustment as number) || 0),
+          ),
+          calorieUncertaintyPercent:
+            (mealTemplate?.calorie_uncertainty_percent as number) || 0,
+          totalProteinG: Math.round(
+            ((mealTemplate?.total_protein_g as number) || 0) *
+              portionMultiplier +
+              ((recordData.protein_adjustment as number) || 0),
+          ),
+          proteinUncertaintyPercent:
+            (mealTemplate?.protein_uncertainty_percent as number) || 0,
+          totalCarbsG: Math.round(
+            ((mealTemplate?.total_carbs_g as number) || 0) * portionMultiplier +
+              ((recordData.carb_adjustment as number) || 0),
+          ),
+          carbsUncertaintyPercent:
+            (mealTemplate?.carbs_uncertainty_percent as number) || 0,
+          totalFatG: Math.round(
+            ((mealTemplate?.total_fat_g as number) || 0) * portionMultiplier +
+              ((recordData.fat_adjustment as number) || 0),
+          ),
+          fatUncertaintyPercent:
+            (mealTemplate?.fat_uncertainty_percent as number) || 0,
+          imageUrl: mealTemplate?.image
+            ? `${pb.baseURL}/api/files/meal_templates/${mealTemplate.id}/${mealTemplate.image}`
+            : undefined,
+          processingStatus: ((mealTemplate?.processing_status as string) ||
+            "pending") as MealTemplatesProcessingStatusOptions,
           created: record.created,
           updated: record.updated,
           // Add linking information
-          linkedMealTemplateId: (mealTemplate?.linked_meal_template_id as string) || undefined,
-          isPrimaryInGroup: (mealTemplate?.is_primary_in_group as boolean) || false,
+          linkedMealTemplateId:
+            (mealTemplate?.linked_meal_template_id as string) || undefined,
+          isPrimaryInGroup:
+            (mealTemplate?.is_primary_in_group as boolean) || false,
         };
       });
 
       // Filter meals to ensure only today's meals (client-side backup)
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
-      const todaysMeals = meals.filter(meal => {
+      const todaysMeals = meals.filter((meal) => {
         const mealDate = new Date(meal.created);
         return mealDate >= todayStart;
       });
 
       // Preserve any optimistic entries (those with temp IDs) and merge with real data
-      setMealHistory(prevHistory => {
-        const optimisticEntries = prevHistory.filter(meal => meal.id.startsWith('temp_'));
-        
+      setMealHistory((prevHistory) => {
+        const optimisticEntries = prevHistory.filter((meal) =>
+          meal.id.startsWith("temp_"),
+        );
+
         // Remove optimistic entries that have been replaced by real entries
-        const validOptimisticEntries = optimisticEntries.filter(optimistic => {
-          // If we have a real meal with the same mealTemplateId, remove the optimistic one
-          return !optimistic.mealTemplateId || !todaysMeals.some(real => real.mealTemplateId === optimistic.mealTemplateId);
-        });
+        const validOptimisticEntries = optimisticEntries.filter(
+          (optimistic) => {
+            // If we have a real meal with the same mealTemplateId, remove the optimistic one
+            return (
+              !optimistic.mealTemplateId ||
+              !todaysMeals.some(
+                (real) => real.mealTemplateId === optimistic.mealTemplateId,
+              )
+            );
+          },
+        );
 
         // Combine optimistic entries with real meals, sorted by created date
-        const combinedMeals = [...validOptimisticEntries, ...todaysMeals]
-          .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+        const combinedMeals = [...validOptimisticEntries, ...todaysMeals].sort(
+          (a, b) =>
+            new Date(b.created).getTime() - new Date(a.created).getTime(),
+        );
 
         // Check for newly completed meals that should trigger review modal
-        const newlyCompletedMeals = todaysMeals.filter(meal => {
-          const wasProcessing = prevHistory.some(prevMeal => 
-            prevMeal.mealTemplateId === meal.mealTemplateId && 
-            prevMeal.processingStatus === "processing"
+        const newlyCompletedMeals = todaysMeals.filter((meal) => {
+          const wasProcessing = prevHistory.some(
+            (prevMeal) =>
+              prevMeal.mealTemplateId === meal.mealTemplateId &&
+              prevMeal.processingStatus === "processing",
           );
           return meal.processingStatus === "completed" && wasProcessing;
         });
@@ -160,18 +213,17 @@ export default function CalorieTracker() {
         if (newlyCompletedMeals.length > 0 && !selectedMeal) {
           const mostRecentCompleted = newlyCompletedMeals[0];
           setSelectedMeal(mostRecentCompleted);
-          setMealReviewMode('review'); // Set to review mode for new meals
+          setMealReviewMode("review"); // Set to review mode for new meals
           setShowMealReview(true);
         }
-        
+
         return combinedMeals;
       });
 
       // Calculate today's totals (only from completed real meals)
       // Use the filtered today's meals and only include completed ones
       const completedTodayMeals = todaysMeals.filter(
-        (meal: MealEntry) =>
-          meal.processingStatus === "completed",
+        (meal: MealEntry) => meal.processingStatus === "completed",
       );
 
       const totalCalories = completedTodayMeals.reduce(
@@ -234,12 +286,17 @@ export default function CalorieTracker() {
           "very active": 1.9,
         };
 
-        const tdee = bmr * activityMultipliers[data.activityLevel as keyof typeof activityMultipliers];
+        const tdee =
+          bmr *
+          activityMultipliers[
+            data.activityLevel as keyof typeof activityMultipliers
+          ];
 
         // Goal adjustment
         let calories = tdee;
         if (data.goal === "lose_weight") calories -= 500;
-        if (data.goal === "gain_weight" || data.goal === "gain_muscle") calories += 500;
+        if (data.goal === "gain_weight" || data.goal === "gain_muscle")
+          calories += 500;
 
         // Protein: 1.6-2.2g per kg body weight
         const protein = Math.round(weight * 1.8);
@@ -309,7 +366,7 @@ export default function CalorieTracker() {
 
     const tempId = `temp_${Date.now()}`;
     const imageUrl = URL.createObjectURL(selectedImage);
-    
+
     // Create optimistic meal entry that appears immediately
     const optimisticMeal: MealEntry = {
       id: tempId,
@@ -333,7 +390,7 @@ export default function CalorieTracker() {
     };
 
     // Add optimistic entry to the beginning of meal history immediately
-    setMealHistory(prev => [optimisticMeal, ...prev]);
+    setMealHistory((prev) => [optimisticMeal, ...prev]);
 
     try {
       const newMealTemplate = await pb.collection("meal_templates").create({
@@ -343,28 +400,34 @@ export default function CalorieTracker() {
       });
 
       // Update the optimistic entry with the real ID and processing status
-      setMealHistory(prev => 
-        prev.map(meal => 
-          meal.id === tempId 
-            ? { ...meal, id: newMealTemplate.id, mealTemplateId: newMealTemplate.id, processingStatus: MealTemplatesProcessingStatusOptions.processing }
-            : meal
-        )
+      setMealHistory((prev) =>
+        prev.map((meal) =>
+          meal.id === tempId
+            ? {
+                ...meal,
+                id: newMealTemplate.id,
+                mealTemplateId: newMealTemplate.id,
+                processingStatus:
+                  MealTemplatesProcessingStatusOptions.processing,
+              }
+            : meal,
+        ),
       );
 
       setSelectedImage(null);
       setMealDescription("");
-      
+
       // Clean up the temporary URL
       URL.revokeObjectURL(imageUrl);
-      
+
       // Load fresh meal history to get any updates
       await loadMealHistory();
     } catch (error) {
       console.error("Error uploading image:", error);
-      
+
       // Remove the optimistic entry on error
-      setMealHistory(prev => prev.filter(meal => meal.id !== tempId));
-      
+      setMealHistory((prev) => prev.filter((meal) => meal.id !== tempId));
+
       // Clean up the temporary URL
       URL.revokeObjectURL(imageUrl);
     }
@@ -373,7 +436,7 @@ export default function CalorieTracker() {
   const handleMealClick = (meal: MealEntry) => {
     if (meal.processingStatus === "completed") {
       setSelectedMeal(meal);
-      setMealReviewMode('view'); // Set to view mode for existing meals
+      setMealReviewMode("view"); // Set to view mode for existing meals
       setShowMealReview(true);
     }
   };
@@ -420,20 +483,20 @@ export default function CalorieTracker() {
   // Check for daily reset and clear old data on mount
   useEffect(() => {
     const currentDate = new Date().toDateString();
-    
+
     // Always clear meal history on component mount to ensure fresh start
     setMealHistory([]);
     setTodayCalories(0);
     setTodayProtein(0);
-    
+
     if (currentDate !== lastResetDate) {
       // New day detected - update the reset date
       setLastResetDate(currentDate);
-      
+
       // Force reload of meals for the new day
       hasLoadedMealsRef.current = false;
     }
-    
+
     // Load fresh meal history
     loadMealHistory();
   }, [lastResetDate, loadMealHistory]);
@@ -448,7 +511,7 @@ export default function CalorieTracker() {
         setTodayProtein(0);
         setMealHistory([]);
         setLastResetDate(currentDate);
-        
+
         // Force reload of meals for the new day
         hasLoadedMealsRef.current = false;
         loadMealHistory();
@@ -484,7 +547,9 @@ export default function CalorieTracker() {
   }
 
   if (!isOnboarded) {
-    return <OnboardingModal open={true} onComplete={handleOnboardingComplete} />;
+    return (
+      <OnboardingModal open={true} onComplete={handleOnboardingComplete} />
+    );
   }
 
   if (showProfile) {
@@ -492,7 +557,12 @@ export default function CalorieTracker() {
   }
 
   if (showWeeklyHistory) {
-    return <WeeklyHistoryPage onBack={() => setShowWeeklyHistory(false)} userGoals={userGoals} />;
+    return (
+      <WeeklyHistoryPage
+        onBack={() => setShowWeeklyHistory(false)}
+        userGoals={userGoals}
+      />
+    );
   }
 
   const calorieProgress = userGoals
@@ -511,12 +581,12 @@ export default function CalorieTracker() {
         <div className="max-w-md mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  CalorieMate
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your personal nutrition assistant
-                </p>
+              <h1 className="text-2xl font-bold text-foreground">
+                CalorieMate
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Your personal nutrition assistant
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -654,7 +724,10 @@ export default function CalorieTracker() {
 
               {/* Meal description textarea */}
               <div className="space-y-2 text-left">
-                <Label htmlFor="meal-description" className="text-sm font-medium">
+                <Label
+                  htmlFor="meal-description"
+                  className="text-sm font-medium"
+                >
                   Meal Description (Optional)
                 </Label>
                 <Textarea
