@@ -232,7 +232,7 @@ func main() {
 
 		// Only run AI analysis if not auto-matched
 		if shouldAnalyze {
-			userContext := "" // TODO:
+			userContext := e.Record.GetString("description")
 			meal, err := llm.EstimateNutritions(imageFile, userContext)
 			if err != nil {
 				slog.Error("Failed to analyze image for meal template", "error", err)
