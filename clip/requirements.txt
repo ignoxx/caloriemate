@@ -4,3 +4,4 @@ pydantic>=2.0.0
 python-multipart
 numpy
 requests
+Pillow>=9.0.0

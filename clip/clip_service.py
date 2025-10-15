@@ -55,10 +55,13 @@ async def load_model():
     
     logger.info("Loading CLIP model...")
     
-    # Check if MPS (Metal Performance Shaders) is available for M1 optimization
-    if torch.backends.mps.is_available():
+    # Check device availability (prioritize CUDA > MPS > CPU for universal compatibility)
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        logger.info("Using CUDA GPU")
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
         device = torch.device("mps")
-        logger.info("Using MPS (Metal Performance Shaders) for M1 optimization")
+        logger.info("Using MPS (Metal Performance Shaders) for M1/M2 optimization")
     else:
         device = torch.device("cpu")
         logger.info("Using CPU")
