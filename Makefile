@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 run:
-	@go run . serve --http=0.0.0.0:8090
+	@go run . serve --http=0.0.0.0:8080 --dir=./pb_data
 
 fe:
 	@pushd ./frontend && npm run dev -- --host && popd
@@ -11,11 +11,11 @@ reset:
 	@make setup-su
 
 setup-su:
-	@go run . superuser upsert test@test.com test12345
+	@go run . superuser upsert test@test.com test12345 --dir=./pb_data
 
 # Run application and create a regular user before running this
 fe-pb-types:
-	@npx pocketbase-typegen --url http://localhost:8090 --email test@test.com --password 'test12345' --out frontend/src/types/pocketbase-types.ts
+	@npx pocketbase-typegen --url http://localhost:8080 --email test@test.com --password 'test12345' --out frontend/src/types/pocketbase-types.ts
 
 clip-docker:
 	@pushd ./clip && sh ./build-docker.sh && docker run -p 8001:8001 caloriemate-clip && popd

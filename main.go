@@ -54,8 +54,6 @@ var distDir embed.FS
 
 func main() {
 	app := pocketbase.NewWithConfig(pocketbase.Config{
-		// TODO: move this to CLI level
-		DefaultDataDir: "./pb_data",
 		DBConnect: func(dbPath string) (*dbx.DB, error) {
 			db, err := dbx.Open("pb_sqlite3_vec", dbPath)
 			if err != nil {
