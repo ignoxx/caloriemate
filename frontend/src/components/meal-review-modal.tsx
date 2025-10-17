@@ -274,7 +274,7 @@ export function MealReviewModal({
 
         <div className="px-4 space-y-4 overflow-y-auto flex-1 pb-6">
           {/* Captured Image */}
-          <div className="aspect-square w-full max-w-48 mx-auto rounded-lg overflow-hidden bg-gray-100">
+          <div className="aspect-square w-full max-w-xs mx-auto rounded-lg overflow-hidden bg-gray-100">
             <img
               src={meal.imageUrl || "/placeholder.svg"}
               alt="Your meal"
