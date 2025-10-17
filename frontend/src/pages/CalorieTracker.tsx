@@ -453,7 +453,7 @@ export default function CalorieTracker() {
       if (confirmedMeal.mealTemplateId) {
         const template = await pb.collection('meal_templates').getOne(confirmedMeal.mealTemplateId);
         const portionMultiplier = confirmedMeal.portionMultiplier || 1;
-        
+
         // Calculate adjustments as deltas from template values
         const calorieAdjustment = confirmedMeal.totalCalories - (template.total_calories * portionMultiplier);
         const proteinAdjustment = confirmedMeal.totalProteinG - (template.total_protein_g * portionMultiplier);
@@ -707,86 +707,78 @@ export default function CalorieTracker() {
         {/* <WeeklyActivity mealHistory={mealHistory} userGoals={userGoals} />*/}
 
         {/* Add Meal Button */}
-        <Card className="border-dashed border-2 border-muted-foreground/30 hover:border-primary/50 transition-colors">
-          <CardContent className="p-6">
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                <Plus className="h-6 w-6 text-primary" />
+        <Card className="overflow-hidden border-2">
+          <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 pb-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <Camera className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-medium text-foreground mb-1">
-                  Log Your Meal
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Take a photo to get started
-                </p>
+                <h3 className="font-semibold text-foreground">Add New Meal</h3>
+                <p className="text-xs text-muted-foreground">Snap and analyze instantly</p>
               </div>
-              <div className="space-y-2">
-                <Button
-                  onClick={handleCameraCapture}
-                  className="w-full"
-                  size="lg"
-                >
-                  <Camera className="h-4 w-4 mr-2" />
-                  Take Photo
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full"
-                  size="lg"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Image
-                </Button>
-              </div>
-
-              {/* Show selected image preview */}
-              {selectedImage && (
-                <div className="pt-4 border-t">
-                  <div className="aspect-square w-32 mx-auto rounded-lg overflow-hidden bg-gray-100 mb-3">
-                    <img
-                      src={URL.createObjectURL(selectedImage)}
-                      alt="Selected meal"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {selectedImage.name}
-                  </p>
-                </div>
-              )}
-
-              {/* Meal description textarea */}
-              <div className="space-y-2 text-left">
-                <Label
-                  htmlFor="meal-description"
-                  className="text-sm font-medium"
-                >
-                  Meal Description (Optional)
-                </Label>
-                <Textarea
-                  id="meal-description"
-                  placeholder="Describe your meal, ingredients, or any additional context..."
-                  value={mealDescription}
-                  onChange={(e) => setMealDescription(e.target.value)}
-                  rows={3}
-                  className="resize-none"
-                />
-              </div>
-
-              {/* Submit button - only show when image is selected */}
-              {selectedImage && (
-                <Button
-                  onClick={handleMealSubmission}
-                  className="w-full"
-                  size="lg"
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  Submit Meal for Analysis
-                </Button>
-              )}
             </div>
+            
+            <Button
+              onClick={handleCameraCapture}
+              className="w-full shadow-md"
+              size="lg"
+            >
+              <Camera className="h-5 w-5 mr-2" />
+              Take a Photo
+            </Button>
+          </div>
+
+          <CardContent className="pt-4 space-y-4">
+            {/* Show selected image preview */}
+            {selectedImage && (
+              <div className="relative">
+                <div className="w-full h-40 rounded-lg overflow-hidden bg-muted border-2 border-dashed border-primary/30">
+                  <img
+                    src={URL.createObjectURL(selectedImage)}
+                    alt="Selected meal"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-medium px-2 py-1 rounded-full shadow-lg">
+                  ✓ Ready
+                </div>
+              </div>
+            )}
+
+            {/* Meal description textarea */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="meal-description" className="text-sm font-medium">
+                  Add Details
+                </Label>
+                <span className="text-xs text-muted-foreground">(Optional)</span>
+              </div>
+              <Textarea
+                id="meal-description"
+                placeholder="e.g., Grilled chicken 200g, brown rice, steamed broccoli..."
+                value={mealDescription}
+                onChange={(e) => setMealDescription(e.target.value)}
+                rows={3}
+                className="resize-none text-sm"
+              />
+              <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+                <span className="text-sm">💡</span>
+                <p>Include weight, ingredients, and cooking method for more accurate nutrition estimates</p>
+              </div>
+            </div>
+
+            {/* Submit button - only show when image is selected */}
+            {selectedImage && (
+              <Button
+                onClick={handleMealSubmission}
+                className="w-full shadow-md"
+                size="lg"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Analyze My Meal
+              </Button>
+            )}
           </CardContent>
         </Card>
 
