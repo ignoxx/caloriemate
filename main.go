@@ -86,7 +86,6 @@ func main() {
 
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
 		// enable auto creation of migration files when making collection changes in the Dashboard
-		// (the isGoRun check is to enable it only during development)
 		Automigrate: stage == "dev",
 	})
 
@@ -191,6 +190,7 @@ func main() {
 				similarRecord, err := e.App.FindRecordById("meal_templates", bestMatch.MealTemplateID)
 				if err == nil {
 					// Copy nutrition data from similar meal
+					// TODO: type for that
 					e.Record.Set("name", similarRecord.GetString("name"))
 					e.Record.Set("ai_description", similarRecord.GetString("ai_description"))
 					e.Record.Set("total_calories", similarRecord.GetInt("total_calories"))
@@ -237,6 +237,7 @@ func main() {
 				return e.Next()
 			}
 
+			// TODO: type for that
 			e.Record.Set("name", meal.Name)
 			e.Record.Set("ai_description", meal.AIDescription)
 			e.Record.Set("total_calories", meal.TotalCalories)
