@@ -116,10 +116,10 @@ export function MealHistoryCard({
       className={`transition-shadow ${isClickable ? "hover:shadow-md cursor-pointer" : ""}`}
       onClick={isClickable ? onClick : undefined}
     >
-      <CardContent className="p-4">
-        <div className="flex gap-3">
+      <CardContent className="p-1">
+        <div className="flex gap-3 items-center">
           {meal.imageUrl && (
-            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+            <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
               <img
                 src={meal.imageUrl || "/placeholder.svg"}
                 alt={meal.name}
