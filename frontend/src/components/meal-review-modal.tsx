@@ -188,9 +188,9 @@ export function MealReviewModal({
       // Get the template values (base values before any adjustments)
       const template = await pb.collection('meal_templates').getOne(meal.mealTemplateId);
       const portionMultiplier = meal.portionMultiplier || 1;
-      
+
       // Calculate adjustments as deltas from template values
-      const calorieAdjustment = showCustomForm 
+      const calorieAdjustment = showCustomForm
         ? parseInt(customCalories) - (template.total_calories * portionMultiplier)
         : (meal.calorieAdjustment || 0);
       const proteinAdjustment = showCustomForm
@@ -531,21 +531,21 @@ export function MealReviewModal({
               <h3 className="font-medium text-foreground">Actions</h3>
               <div className="space-y-2">
                 <Card
-                  className="cursor-pointer transition-colors hover:bg-red-50 dark:hover:bg-red-950/20 border-red-200 dark:border-red-800"
+                  className="cursor-pointer transition-colors bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-950/60 border-red-200 dark:border-red-800"
                   onClick={handleRemoveMeal}
                 >
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2">
                       {isRemoving ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-red-600" />
+                        <Loader2 className="h-4 w-4 animate-spin text-red-700 dark:text-red-400" />
                       ) : (
-                        <Trash2 className="h-4 w-4 text-red-600" />
+                        <Trash2 className="h-4 w-4 text-red-700 dark:text-red-400" />
                       )}
-                      <span className="font-medium text-sm text-red-600">
+                      <span className="font-medium text-sm text-red-700 dark:text-red-400">
                         {isRemoving ? "Removing..." : "Remove from today's meals"}
                       </span>
                     </div>
-                    <p className="text-xs text-red-500 mt-1">
+                    <p className="text-xs text-red-600 dark:text-red-500 mt-1">
                       This will hide the meal from today but keep it in your templates
                     </p>
                   </CardContent>
@@ -567,9 +567,9 @@ export function MealReviewModal({
                   Cancel
                 </Button>
               </DrawerClose>
-              <Button 
-                onClick={handleUpdateMeal} 
-                className="w-full" 
+              <Button
+                onClick={handleUpdateMeal}
+                className="w-full"
                 size="lg"
                 disabled={isUpdating}
               >
