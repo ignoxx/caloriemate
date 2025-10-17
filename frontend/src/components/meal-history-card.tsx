@@ -2,12 +2,9 @@ import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import {
   Clock,
-  Edit,
   Loader2,
   CheckCircle,
   AlertCircle,
-  Link as LinkIcon,
-  X,
 } from "lucide-react";
 import { MealEntry } from "../types/meal";
 import { useState } from "react";
@@ -163,23 +160,6 @@ export function MealHistoryCard({
                   )}{" "}
                   protein
                 </Badge>
-                {meal.linkedMealTemplateId && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800"
-                  >
-                    <LinkIcon className="h-3 w-3 mr-1" />
-                    Linked meal
-                  </Badge>
-                )}
-                {meal.isPrimaryInGroup && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800"
-                  >
-                    Primary in group
-                  </Badge>
-                )}
               </div>
             ) : (
               <div className="flex items-center gap-2 mb-2">
