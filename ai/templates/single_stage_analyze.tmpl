@@ -51,10 +51,12 @@
         - Account for cooking methods that may affect nutritional content (added fats, etc.)
         - Consider visible sauces, oils, and condiments in your calculations
 
-        **Context Priority Rule:**
-        - **CRITICAL**: When there's a conflict between your visual analysis and user context (e.g., you see "4 eggs" but user context says "6 eggs"), ALWAYS prioritize the user context
-        - The user context represents the actual meal composition and should override any visual estimation discrepancies
-        - Use the user context as the authoritative source for quantities, ingredients, and meal details
+        **Context Integration Rule:**
+        - **CRITICAL**: When user context CONTRADICTS the image (e.g., you see "4 eggs" but user says "6 eggs"), ALWAYS prioritize the user context numbers/quantities
+        - When user context mentions ADDITIONAL items not visible in the image (e.g., "also ate pasta" when image shows dessert), treat these as separate meal components
+        - Calculate nutrition for BOTH what's visible in the image AND what the user mentions they consumed
+        - Do NOT try to reinterpret what you see in the image to match unrelated user context
+        - The user context represents the actual meal composition and should override visual estimation discrepancies for quantities
 
         **Uncertainty Assessment:**
         - Lower uncertainty (5-15%) for: clearly countable items, standard portions, familiar foods
@@ -64,6 +66,7 @@
         **Meal Naming:**
         - Create a concise, descriptive name (2-4 words typically)
         - Use user context if it provides a suitable meal name
+        - If user context mentions multiple distinct items not visible in the image, create a combined meal name (e.g., "Chocolate Dessert and Pasta with Pesto")
         - Focus on the main components or dish type
     </calculation_guidelines>
 
@@ -97,6 +100,21 @@
           "total_fat_g": 22,
           "fat_uncertainty_percent": 32,
           "analysis_notes": "3 eggs (210cal) + 2 toast slices (240cal) + fruit (70cal). Butter estimated from visual sheen on eggs."
+        }
+
+        Example with additional user context:
+        {
+          "meal_name": "Chocolate Dessert and Pasta with Pesto",
+          "ai_description": "Visible in image: Chocolate dessert with chocolate chips on a light green plate, mostly consumed, approximately 100g remaining. User also consumed: Pasta (Nudeln) with pesto, not pictured, estimated standard portion of 200g cooked pasta with 30g pesto sauce.",
+          "total_calories": 650,
+          "calorie_uncertainty_percent": 25,
+          "total_protein_g": 18,
+          "protein_uncertainty_percent": 20,
+          "total_carbs_g": 75,
+          "carbs_uncertainty_percent": 20,
+          "total_fat_g": 28,
+          "fat_uncertainty_percent": 25,
+          "analysis_notes": "Dessert ~250cal + Pasta with pesto ~400cal. Combined nutrition for both items."
         }
     </output_format>
 
