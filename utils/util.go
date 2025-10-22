@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"github.com/ignoxx/caloriemate/types"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -32,8 +33,8 @@ func FindSimilarMeals(app core.App, mealVector []byte, limit int) ([]SimilarMeal
 	}
 
 	err := app.DB().NewQuery(`
-		SELECT meal_template_id, distance 
-		FROM meal_image_vectors 
+		SELECT meal_template_id, distance
+		FROM meal_image_vectors
 		WHERE embedding MATCH {:mealVector} AND k = {:limit}
 	`).Bind(dbx.Params{
 		"mealVector": mealVector,
@@ -56,7 +57,7 @@ func FindSimilarMeals(app core.App, mealVector []byte, limit int) ([]SimilarMeal
 
 	var meals []SimilarMeal
 	err = app.DB().Select("id", "name", "total_calories", "total_protein_g", "total_carbs_g", "total_fat_g", "ai_description", "created").
-		From("meal_templates").
+		From(types.COL_MEAL_TEMPLATES).
 		Where(dbx.In("id", mealIDs...)).
 		AndWhere(dbx.HashExp{"processing_status": "completed"}).
 		OrderBy("created DESC").
@@ -78,7 +79,7 @@ func FindSimilarMeals(app core.App, mealVector []byte, limit int) ([]SimilarMeal
 			meal.Distance = match.Distance
 
 			// Get image URL - we'll need the actual record for this
-			record, err := app.FindRecordById("meal_templates", meal.ID)
+			record, err := app.FindRecordById(types.COL_MEAL_TEMPLATES, meal.ID)
 			if err == nil {
 				imageFiles := record.GetStringSlice("image")
 				if len(imageFiles) > 0 {

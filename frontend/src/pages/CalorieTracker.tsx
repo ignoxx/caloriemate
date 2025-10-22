@@ -29,7 +29,7 @@ import ProfilePage from "./ProfilePage";
 import WeeklyHistoryPage from "./WeeklyHistoryPage";
 import { UserGoals, OnboardingData } from "../types/common";
 import { MealEntry, SimilarMeal } from "../types/meal";
-import { MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
+import { Collections, MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 
 import pb from "../lib/pocketbase";
 
@@ -399,7 +399,7 @@ export default function CalorieTracker() {
     setMealHistory((prev) => [optimisticMeal, ...prev]);
 
     try {
-      const newMealTemplate = await pb.collection("meal_templates").create({
+      const newMealTemplate = await pb.collection(Collections.MealTemplates).create({
         image: selectedImage,
         processing_status: "pending",
         description: mealDescription || "",
@@ -718,7 +718,7 @@ export default function CalorieTracker() {
                 <p className="text-xs text-muted-foreground">Snap and analyze instantly</p>
               </div>
             </div>
-            
+
             <Button
               onClick={handleCameraCapture}
               className="w-full shadow-md"

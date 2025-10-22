@@ -11,5 +11,5 @@ type Embedder interface {
 }
 
 type Analyzer interface {
-	EstimateNutritions(image io.ReadSeeker, userContext string) (types.Meal, error)
+	EstimateNutritions(image io.ReadSeeker, userContext string) (types.MealTemplate, error)
 }

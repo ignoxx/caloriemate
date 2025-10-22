@@ -30,8 +30,8 @@ func (c *Client) AnalyzeImage(input io.ReadSeeker) (string, error) {
 	return "", nil
 }
 
-func (c *Client) EstimateNutritions(analyzerOutput, userContext string) (types.Meal, error) {
-	return types.Meal{}, nil
+func (c *Client) EstimateNutritions(analyzerOutput, userContext string) (types.MealTemplate, error) {
+	return types.MealTemplate{}, nil
 }
 
 var _ ai.Analyzer = (*Client)(nil)

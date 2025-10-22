@@ -6,6 +6,7 @@ import (
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/cgo"
 	"github.com/ignoxx/caloriemate/ai"
 	"github.com/ignoxx/caloriemate/ai/clip"
+	"github.com/ignoxx/caloriemate/types"
 	"github.com/ignoxx/caloriemate/utils"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -15,7 +16,7 @@ func HandleGetSimilarMealTemplates(e *core.RequestEvent) error {
 	id := e.Request.PathValue("id")
 
 	// Get the meal template record
-	record, err := e.App.FindRecordById("meal_templates", id)
+	record, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, id)
 	if err != nil {
 		slog.Error("Failed to find meal template", "id", id, "error", err)
 		return apis.NewNotFoundError("Meal template not found", err)
@@ -94,12 +95,12 @@ func HandlePostMealLink(e *core.RequestEvent) error {
 	}
 
 	// Get both meal template records
-	record, err := e.App.FindRecordById("meal_templates", id)
+	record, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, id)
 	if err != nil {
 		return apis.NewNotFoundError("Meal template not found", err)
 	}
 
-	targetRecord, err := e.App.FindRecordById("meal_templates", targetId)
+	targetRecord, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, targetId)
 	if err != nil {
 		return apis.NewNotFoundError("Target meal template not found", err)
 	}
@@ -140,7 +141,7 @@ func HandlePostMealUnlink(e *core.RequestEvent) error {
 	}
 
 	// Get the meal template record
-	record, err := e.App.FindRecordById("meal_templates", id)
+	record, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, id)
 	if err != nil {
 		return apis.NewNotFoundError("Meal template not found", err)
 	}

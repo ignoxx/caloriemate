@@ -67,45 +67,6 @@ export function MealHistoryCard({
     return `${value}${unit}`;
   };
 
-  const handleRemoveMeal = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
-
-    if (
-      !confirm(
-        "Remove this meal from today's list? The meal will be kept in your templates.",
-      )
-    ) {
-      return;
-    }
-
-    setIsRemoving(true);
-
-    try {
-      const response = await fetch(
-        `${pb.baseUrl}/api/collections/meal_history/records/${meal.mealHistoryId}/hide`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: pb.authStore.token
-              ? `Bearer ${pb.authStore.token}`
-              : "",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to remove meal");
-      }
-
-      onMealRemoved?.();
-    } catch (error) {
-      console.error("Failed to remove meal:", error);
-      // TODO: Show error toast
-    } finally {
-      setIsRemoving(false);
-    }
-  };
-
   const isClickable = meal.processingStatus === "completed";
 
   return (

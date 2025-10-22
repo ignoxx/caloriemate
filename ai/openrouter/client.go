@@ -31,11 +31,11 @@ func New() *Client {
 	return &Client{client}
 }
 
-func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (types.Meal, error) {
+func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (types.MealTemplate, error) {
 	ctx := context.Background()
 
 	if _, err := image.Seek(0, io.SeekStart); err != nil {
-		return types.Meal{}, errors.New("image seek to start failed with: " + err.Error())
+		return types.MealTemplate{}, errors.New("image seek to start failed with: " + err.Error())
 	}
 
 	var imgBuf bytes.Buffer
@@ -45,7 +45,7 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	defer enc.Close()
 
 	if _, err := io.Copy(enc, image); err != nil {
-		return types.Meal{}, errors.New("image copy to buffer failed with: " + err.Error())
+		return types.MealTemplate{}, errors.New("image copy to buffer failed with: " + err.Error())
 	}
 
 	type input struct {
@@ -53,7 +53,7 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	}
 
 	if err := ai.STAGE_SINGLE_PROMPT.Execute(&promptBuf, input{UserContext: userContext}); err != nil {
-		return types.Meal{}, errors.New("single stage prompt execute failed with: " + err.Error())
+		return types.MealTemplate{}, errors.New("single stage prompt execute failed with: " + err.Error())
 	}
 
 	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
@@ -84,26 +84,27 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	})
 
 	if err != nil {
-		return types.Meal{}, errors.New("chat completion request failed with: " + err.Error())
+		return types.MealTemplate{}, errors.New("chat completion request failed with: " + err.Error())
 	}
 
 	if len(resp.Choices) > 0 {
 		meal, err := c.validateJSON(resp.Choices[0].Message.Content.Text)
 		if err != nil {
-			return types.Meal{}, errors.New("response JSON validation failed with: " + err.Error())
+			return types.MealTemplate{}, errors.New("response JSON validation failed with: " + err.Error())
 		}
 
 		return meal, nil
 	}
 
-	return types.Meal{}, errors.New("no choices in response")
+	return types.MealTemplate{}, errors.New("no choices in response")
 }
 
-func (c *Client) validateJSON(s string) (types.Meal, error) {
+func (c *Client) validateJSON(s string) (types.MealTemplate, error) {
 	s, _ = strings.CutPrefix(s, "```json")
+	s, _ = strings.CutPrefix(s, "```")
 	s, _ = strings.CutSuffix(s, "```")
 
-	var meal types.Meal
+	var meal types.MealTemplate
 	err := json.Unmarshal([]byte(s), &meal)
 
 	return meal, err

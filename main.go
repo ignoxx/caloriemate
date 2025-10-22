@@ -24,6 +24,7 @@ import (
 	"github.com/ignoxx/caloriemate/ai/openrouter"
 	"github.com/ignoxx/caloriemate/api"
 	_ "github.com/ignoxx/caloriemate/migrations"
+	"github.com/ignoxx/caloriemate/types"
 )
 
 func init() {
@@ -93,21 +94,20 @@ func main() {
 	var imgLlm ai.Embedder = clip.New()
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-
-		// TODO: check if we need to put this behind auth mw
-		se.Router.GET("/api/collections/meal_templates/records/{id}/similar", api.HandleGetSimilarMealTemplates)
-		se.Router.POST("/api/collections/meal_templates/records/{id}/link/{targetId}", api.HandlePostMealLink)
-		se.Router.POST("/api/collections/meal_templates/records/{id}/unlink", api.HandlePostMealUnlink)
-		se.Router.POST("/api/collections/meal_history/records/{id}/hide", api.HandlePostMealHide)
-		se.Router.POST("/api/collections/meal_history/records/{id}/unhide", api.HandlePostMealUnhide)
-
-		// serves static files from the provided public dir (if exists)
+		// serves static files
 		se.Router.GET("/{path...}", apis.Static(distDirFs, true))
+
+		cr := se.Router.Group("/api/v1")
+		cr.Bind(apis.RequireAuth())
+
+		cr.GET("/similar/{id}", api.HandleGetSimilarMealTemplates)
+		cr.POST("/meal/{id}/link/{targetId}", api.HandlePostMealLink)
+		cr.POST("/meal/{id}/hide", api.HandlePostMealHide)
 
 		return se.Next()
 	})
 
-	app.OnRecordCreateRequest("meal_templates").BindFunc(func(e *core.RecordRequestEvent) error {
+	app.OnRecordCreateRequest(types.COL_MEAL_TEMPLATES).BindFunc(func(e *core.RecordRequestEvent) error {
 		ri, err := e.RequestInfo()
 		if err != nil {
 			slog.Error("Failed to get request info", "error", err)
@@ -127,7 +127,7 @@ func main() {
 	})
 
 	// Analyze the meal upon successful creation
-	app.OnRecordAfterCreateSuccess("meal_templates").BindFunc(func(e *core.RecordEvent) error {
+	app.OnRecordAfterCreateSuccess(types.COL_MEAL_TEMPLATES).BindFunc(func(e *core.RecordEvent) error {
 		slog.Info("Starting meal template analysis", "recordId", e.Record.Id)
 
 		imageNames := e.Record.GetStringSlice("image")
@@ -187,7 +187,7 @@ func main() {
 				slog.Info("Auto-matching with existing meal", "recordId", e.Record.Id, "matchId", bestMatch.MealTemplateID, "distance", bestMatch.Distance)
 
 				// Get the similar meal's data
-				similarRecord, err := e.App.FindRecordById("meal_templates", bestMatch.MealTemplateID)
+				similarRecord, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, bestMatch.MealTemplateID)
 				if err == nil {
 					// Copy nutrition data from similar meal
 					// TODO: type for that

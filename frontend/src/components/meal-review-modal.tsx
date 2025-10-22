@@ -157,7 +157,7 @@ export function MealReviewModal({
 
     try {
       const response = await fetch(
-        `${pb.baseURL}/api/collections/meal_history/records/${meal.mealHistoryId}/hide`,
+        `${pb.baseURL}/api/v1/meal/${meal.mealHistoryId}/hide`,
         {
           method: 'POST',
           headers: {

@@ -26,12 +26,12 @@ export function SimilarMealsModal({
 
   const handleLinkMeal = async (targetMealId: string) => {
     if (!meal.mealTemplateId) return;
-    
+
     setLinkingMealId(targetMealId);
-    
+
     try {
       const response = await fetch(
-        `${pb.baseUrl}/api/collections/meal_templates/records/${meal.mealTemplateId}/link/${targetMealId}`,
+        `${pb.baseURL}/api/v1/meal/${meal.mealTemplateId}/link/${targetMealId}`,
         {
           method: 'POST',
           headers: {
@@ -72,7 +72,7 @@ export function SimilarMealsModal({
             Choose a meal to link with "{meal.name}". Linked meals will be grouped together.
           </p>
         </DrawerHeader>
-        
+
         <div className="p-4 space-y-3 overflow-y-auto">
           {similarMeals.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
@@ -92,7 +92,7 @@ export function SimilarMealsModal({
                         />
                       </div>
                     )}
-                    
+
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-medium text-sm text-foreground truncate pr-2">

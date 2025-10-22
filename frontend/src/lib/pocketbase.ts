@@ -7,16 +7,16 @@ const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localho
 // Helper function to fetch similar meals
 export const fetchSimilarMeals = async (mealId: string): Promise<SimilarMeal[]> => {
   try {
-    const response = await fetch(`${pb.baseURL}/api/collections/meal_templates/records/${mealId}/similar`, {
+    const response = await fetch(`${pb.baseURL}/api/v1/similar/${mealId}`, {
       headers: {
         'Authorization': pb.authStore.token ? `Bearer ${pb.authStore.token}` : '',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch similar meals');
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error('Error fetching similar meals:', error);
