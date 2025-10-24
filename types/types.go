@@ -19,14 +19,14 @@ type MealTemplate struct {
 	Name                      string    `json:"meal_name"`
 	UserContext               string    `json:"userContext"`
 	AIDescription             string    `json:"ai_description"`
-	TotalCalories             float64   `json:"total_calories"`
-	CalorieUncertaintyPercent float64   `json:"calorie_uncertainty_percent"`
-	TotalProteinG             float64   `json:"total_protein_g"`
-	ProteinUncertaintyPercent float64   `json:"protein_uncertainty_percent"`
-	TotalCarbsG               float64   `json:"total_carbs_g"`
-	CarbsUncertaintyPercent   float64   `json:"carbs_uncertainty_percent"`
-	TotalFatG                 float64   `json:"total_fat_g"`
-	FatUncertaintyPercent     float64   `json:"fat_uncertainty_percent"`
+	TotalCalories             int       `json:"total_calories"`
+	CalorieUncertaintyPercent int       `json:"calorie_uncertainty_percent"`
+	TotalProteinG             int       `json:"total_protein_g"`
+	ProteinUncertaintyPercent int       `json:"protein_uncertainty_percent"`
+	TotalCarbsG               int       `json:"total_carbs_g"`
+	CarbsUncertaintyPercent   int       `json:"carbs_uncertainty_percent"`
+	TotalFatG                 int       `json:"total_fat_g"`
+	FatUncertaintyPercent     int       `json:"fat_uncertainty_percent"`
 	AnalysisNotes             string    `json:"analysis_notes"`
 	ProcessingStatus          string    `json:"processing_status,omitempty"`
 	Created                   time.Time `json:"created"`
@@ -67,14 +67,14 @@ func MealTemplateFromRecord(r *core.Record) MealTemplate {
 		Name:                      r.GetString("name"),
 		UserContext:               r.GetString("description"),
 		AIDescription:             r.GetString("ai_description"),
-		TotalCalories:             r.GetFloat("total_calories"),
-		CalorieUncertaintyPercent: r.GetFloat("calorie_uncertainty_percent"),
-		TotalProteinG:             r.GetFloat("total_protein_g"),
-		ProteinUncertaintyPercent: r.GetFloat("protein_uncertainty_percent"),
-		TotalCarbsG:               r.GetFloat("total_carbs_g"),
-		CarbsUncertaintyPercent:   r.GetFloat("carbs_uncertainty_percent"),
-		TotalFatG:                 r.GetFloat("total_fat_g"),
-		FatUncertaintyPercent:     r.GetFloat("fat_uncertainty_percent"),
+		TotalCalories:             r.GetInt("total_calories"),
+		CalorieUncertaintyPercent: r.GetInt("calorie_uncertainty_percent"),
+		TotalProteinG:             r.GetInt("total_protein_g"),
+		ProteinUncertaintyPercent: r.GetInt("protein_uncertainty_percent"),
+		TotalCarbsG:               r.GetInt("total_carbs_g"),
+		CarbsUncertaintyPercent:   r.GetInt("carbs_uncertainty_percent"),
+		TotalFatG:                 r.GetInt("total_fat_g"),
+		FatUncertaintyPercent:     r.GetInt("fat_uncertainty_percent"),
 		ProcessingStatus:          r.GetString("processing_status"),
 		Created:                   r.GetDateTime("created").Time(),
 		Updated:                   r.GetDateTime("updated").Time(),
