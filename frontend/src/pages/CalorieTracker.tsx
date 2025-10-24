@@ -8,6 +8,7 @@ import {
   User,
   History,
   BookOpen,
+  Calendar,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
@@ -642,7 +643,7 @@ export default function CalorieTracker() {
                 onClick={() => setShowMealLibrary(true)}
                 title="My Meals"
               >
-                <BookOpen className="h-5 w-5" />
+                <History className="h-5 w-5" />
               </Button>
               <Button
                 variant="ghost"
@@ -650,7 +651,7 @@ export default function CalorieTracker() {
                 onClick={() => setShowWeeklyHistory(true)}
                 title="Weekly History"
               >
-                <History className="h-5 w-5" />
+                <Calendar className="h-5 w-5" />
               </Button>
               <Button
                 variant="ghost"

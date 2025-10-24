@@ -6,23 +6,11 @@ import { Badge } from "../components/ui/badge";
 import { useAuth } from "../contexts/AuthContext";
 import pb from "../lib/pocketbase";
 import { Collections } from "@/types/pocketbase-types";
+import { MealTemplate } from "@/types/common";
 
 interface MealLibraryPageProps {
   onBack: () => void;
   onMealLogged?: () => void;
-}
-
-interface MealTemplate {
-  id: string;
-  name: string;
-  ai_description: string;
-  total_calories: number;
-  total_protein_g: number;
-  total_carbs_g: number;
-  total_fat_g: number;
-  image: string;
-  created: string;
-  user: string;
 }
 
 export default function MealLibraryPage({ onBack, onMealLogged }: MealLibraryPageProps) {
