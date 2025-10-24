@@ -7,8 +7,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { MealEntry } from "../types/meal";
-import { useState } from "react";
-import pb from "../lib/pocketbase";
 
 interface MealHistoryCardProps {
   meal: MealEntry;
@@ -19,9 +17,7 @@ interface MealHistoryCardProps {
 export function MealHistoryCard({
   meal,
   onClick,
-  onMealRemoved,
 }: MealHistoryCardProps) {
-  const [isRemoving, setIsRemoving] = useState(false);
 
   const timeString = new Date(meal.created).toLocaleTimeString("en-US", {
     hour: "numeric",

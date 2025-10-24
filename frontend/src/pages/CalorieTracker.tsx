@@ -2,13 +2,12 @@ import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Camera,
-  Upload,
-  Plus,
   Target,
   Zap,
   Send,
   User,
   History,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
@@ -27,6 +26,7 @@ import { MealHistoryCard } from "../components/meal-history-card";
 import { useAuth } from "../contexts/AuthContext";
 import ProfilePage from "./ProfilePage";
 import WeeklyHistoryPage from "./WeeklyHistoryPage";
+import MealLibraryPage from "./MealLibraryPage";
 import { UserGoals, OnboardingData } from "../types/common";
 import { MealEntry, SimilarMeal } from "../types/meal";
 import { Collections, MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
@@ -48,6 +48,7 @@ export default function CalorieTracker() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
+  const [showMealLibrary, setShowMealLibrary] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [lastResetDate, setLastResetDate] = useState<string>(
     new Date().toDateString(),
@@ -498,7 +499,7 @@ export default function CalorieTracker() {
       // Create new meal history record that references the meal template
       const newMealRecord = await pb.collection("meal_history").create({
         meal: similarMeal.id, // Reference to the meal_templates record
-        user: pb.authStore.model?.id,
+        user: pb.authStore.record?.id,
         portion_multiplier: 1.0, // Default to 1x portion
         adjustments: `Selected from similar meal: ${similarMeal.name}`,
       });
@@ -600,6 +601,17 @@ export default function CalorieTracker() {
     );
   }
 
+  if (showMealLibrary) {
+    return (
+      <MealLibraryPage
+        onBack={() => setShowMealLibrary(false)}
+        onMealLogged={() => {
+          loadMealHistory();
+        }}
+      />
+    );
+  }
+
   const calorieProgress = userGoals
     ? (todayCalories / userGoals.target_calories) * 100
     : 0;
@@ -624,6 +636,14 @@ export default function CalorieTracker() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowMealLibrary(true)}
+                title="My Meals"
+              >
+                <BookOpen className="h-5 w-5" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
