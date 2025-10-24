@@ -54,10 +54,6 @@ export function SimilarMealsModal({
     }
   };
 
-  const formatNutrition = (calories: number, protein: number, carbs: number, fat: number) => {
-    return `${calories} kcal • ${protein}g protein • ${carbs}g carbs • ${fat}g fat`;
-  };
-
   const getSimilarityPercentage = (distance: number) => {
     // Convert distance to similarity percentage (lower distance = higher similarity)
     return Math.round((1 - distance) * 100);

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import pb, { type User } from '../lib/pocketbase'
 import { SignupData } from '../types/common'
+import { Collections } from '@/types/pocketbase-types'
 
 interface AuthContextType {
   user: User | null
@@ -35,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Check if user is already authenticated on app start
     const checkAuth = () => {
       cleanupOldStorage();
-      
+
       if (pb.authStore.isValid && pb.authStore.record) {
         setUser(pb.authStore.record as unknown as User)
       }
@@ -63,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = async (data: SignupData) => {
     // Create the user account
-    await pb.collection('users').create(data)
+    await pb.collection(Collections.Users).create(data)
 
     // Automatically log them in after signup
     const authData = await pb.collection('users').authWithPassword(data.email, data.password)
@@ -72,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Create user profile with goals if provided
     if (data.onboardingData && data.userGoals) {
       try {
-        await pb.collection('user_profiles').create({
+        await pb.collection(Collections.UserProfiles).create({
           user: authData.record.id,
           target_calories: data.userGoals.target_calories,
           target_protein_g: data.userGoals.target_protein_g,

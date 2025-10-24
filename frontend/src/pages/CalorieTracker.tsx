@@ -7,7 +7,6 @@ import {
   Send,
   User,
   History,
-  BookOpen,
   Calendar,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -332,7 +331,7 @@ export default function CalorieTracker() {
 
       console.log("Creating profile data:", profileData);
 
-      await pb.collection("user_profiles").create(profileData);
+      await pb.collection(Collections.UserProfiles).create(profileData);
 
       console.log("Profile created successfully");
 
@@ -498,7 +497,7 @@ export default function CalorieTracker() {
   const handleSimilarMealSelected = async (similarMeal: SimilarMeal) => {
     try {
       // Create new meal history record that references the meal template
-      const newMealRecord = await pb.collection("meal_history").create({
+      const newMealRecord = await pb.collection(Collections.MealHistory).create({
         meal: similarMeal.id, // Reference to the meal_templates record
         user: pb.authStore.record?.id,
         portion_multiplier: 1.0, // Default to 1x portion

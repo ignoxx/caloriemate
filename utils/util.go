@@ -50,7 +50,7 @@ func FindSimilarMeals(app core.App, mealVector []byte, limit int) ([]SimilarMeal
 	}
 
 	// Get meal template details for the matches
-	var mealIDs []interface{}
+	var mealIDs []any
 	for _, match := range matches {
 		mealIDs = append(mealIDs, match.MealTemplateID)
 	}
