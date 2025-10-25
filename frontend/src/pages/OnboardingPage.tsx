@@ -269,6 +269,12 @@ export default function OnboardingPage({
                   </p>
                 </div>
 
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+                  <p className="text-xs text-blue-900 dark:text-blue-300">
+                    <strong>Tracking Tip:</strong> Calorie estimates are conservative. Track your weight weekly to assess progress and adjust targets if needed after 1-2 weeks.
+                  </p>
+                </div>
+
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
                     Or set custom targets:

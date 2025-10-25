@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Loader2, User, Target, Save, ArrowLeft, LogOut } from "lucide-react";
+import { Loader2, User, Target, Save, ArrowLeft, LogOut, Info, ChevronDown } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -9,13 +9,18 @@ import {
 } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
 import { ThemeToggle } from "../components/theme-toggle";
 import { useAuth } from "../contexts/AuthContext";
 import { UserProfile } from "../types/common";
-import { 
-  UserProfilesGenderOptions, 
-  UserProfilesActivityLevelOptions, 
-  UserProfilesGoalOptions 
+import {
+  UserProfilesGenderOptions,
+  UserProfilesActivityLevelOptions,
+  UserProfilesGoalOptions
 } from "../types/pocketbase-types";
 import pb from "../lib/pocketbase";
 interface ProfilePageProps {
@@ -37,6 +42,7 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [tipsOpen, setTipsOpen] = useState(false);
   const hasLoadedRef = useRef(false);
 
   const { user, logout } = useAuth();
@@ -183,6 +189,35 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
       </div>
 
       <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+        {/* Progress Tracking Tips */}
+        <Collapsible open={tipsOpen} onOpenChange={setTipsOpen}>
+          <div className="space-y-2">
+            <CollapsibleTrigger asChild>
+              <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <Info className="h-4 w-4" />
+                <span>Progress Tracking Tips</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${tipsOpen ? 'rotate-180' : ''}`} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-3 text-xs text-muted-foreground pl-6 pt-2">
+                <div>
+                  <h4 className="font-medium text-foreground mb-1">Calorie estimates are conservative</h4>
+                  <p>CalorieMate uses conservative calculations for both food and activity. If you're not seeing progress after 1-2 weeks, your actual calorie needs may differ.</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-foreground mb-1">Track progress consistently</h4>
+                  <p>In a calorie deficit, you should start seeing changes within 1-2 weeks. Track your weight daily or weekly, take progress photos, and measure body parts.</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-foreground mb-1">Adjust your goals if needed</h4>
+                  <p>If you're not seeing expected changes after consistent tracking for 1-2 weeks, reassess your calorie targets here and make small adjustments (±200 kcal).</p>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
         {/* Personal Information */}
         <Card>
           <CardHeader className="pb-3">

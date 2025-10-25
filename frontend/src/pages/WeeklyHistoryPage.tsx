@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Calendar, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Calendar, ThumbsUp, ThumbsDown, Minus, Info } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -319,6 +319,24 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>{weekSummary.totalDaysLogged}/7 days logged</span>
               <span>{weekSummary.perfectDays} perfect days</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Progress Tracking Info */}
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700">
+          <CardContent className="p-4">
+            <div className="flex gap-3">
+              <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="space-y-2 text-sm text-blue-900 dark:text-blue-300">
+                <p className="font-medium">Not seeing progress?</p>
+                <p>
+                  CalorieMate's estimates are conservative. If you're in a calorie deficit but not seeing changes after 1-2 weeks of consistent tracking, reassess your calorie targets in Settings.
+                </p>
+                <p className="text-xs">
+                  <strong>Best tracking methods:</strong> Daily/weekly weigh-ins, progress photos, body measurements
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
