@@ -1,6 +1,8 @@
 package types
 
 import (
+	"encoding/json"
+	"math"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -121,4 +123,36 @@ func ActivityLogFromRecord(r *core.Record) ActivityLog {
 		Created:         r.GetDateTime("created").Time(),
 		Updated:         r.GetDateTime("updated").Time(),
 	}
+}
+
+func (m *MealTemplate) UnmarshalJSON(data []byte) error {
+	type Alias MealTemplate
+	aux := &struct {
+		TotalCalories             float64 `json:"total_calories"`
+		CalorieUncertaintyPercent float64 `json:"calorie_uncertainty_percent"`
+		TotalProteinG             float64 `json:"total_protein_g"`
+		ProteinUncertaintyPercent float64 `json:"protein_uncertainty_percent"`
+		TotalCarbsG               float64 `json:"total_carbs_g"`
+		CarbsUncertaintyPercent   float64 `json:"carbs_uncertainty_percent"`
+		TotalFatG                 float64 `json:"total_fat_g"`
+		FatUncertaintyPercent     float64 `json:"fat_uncertainty_percent"`
+		*Alias
+	}{
+		Alias: (*Alias)(m),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	m.TotalCalories = int(math.Round(aux.TotalCalories))
+	m.CalorieUncertaintyPercent = int(math.Round(aux.CalorieUncertaintyPercent))
+	m.TotalProteinG = int(math.Round(aux.TotalProteinG))
+	m.ProteinUncertaintyPercent = int(math.Round(aux.ProteinUncertaintyPercent))
+	m.TotalCarbsG = int(math.Round(aux.TotalCarbsG))
+	m.CarbsUncertaintyPercent = int(math.Round(aux.CarbsUncertaintyPercent))
+	m.TotalFatG = int(math.Round(aux.TotalFatG))
+	m.FatUncertaintyPercent = int(math.Round(aux.FatUncertaintyPercent))
+
+	return nil
 }

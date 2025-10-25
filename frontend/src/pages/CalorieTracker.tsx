@@ -9,6 +9,7 @@ import {
   History,
   Calendar,
   Footprints,
+  Loader2,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
@@ -56,6 +57,7 @@ export default function CalorieTracker() {
   const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
   const [showMealLibrary, setShowMealLibrary] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isSubmittingMeal, setIsSubmittingMeal] = useState(false);
   const [lastResetDate, setLastResetDate] = useState<string>(
     new Date().toDateString(),
   );
@@ -386,7 +388,9 @@ export default function CalorieTracker() {
   };
 
   const handleMealSubmission = async () => {
-    if (!selectedImage) return;
+    if (!selectedImage || isSubmittingMeal) return;
+
+    setIsSubmittingMeal(true);
 
     const tempId = `temp_${Date.now()}`;
     const imageUrl = URL.createObjectURL(selectedImage);
@@ -454,6 +458,8 @@ export default function CalorieTracker() {
 
       // Clean up the temporary URL
       URL.revokeObjectURL(imageUrl);
+    } finally {
+      setIsSubmittingMeal(false);
     }
   };
 
@@ -844,11 +850,21 @@ export default function CalorieTracker() {
             {selectedImage && (
               <Button
                 onClick={handleMealSubmission}
+                disabled={isSubmittingMeal}
                 className="w-full shadow-md"
                 size="lg"
               >
-                <Send className="h-4 w-4 mr-2" />
-                Analyze My Meal
+                {isSubmittingMeal ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Analyze My Meal
+                  </>
+                )}
               </Button>
             )}
           </CardContent>
