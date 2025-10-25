@@ -70,7 +70,8 @@ export default function MealLibraryPage({ onBack, onMealLogged }: MealLibraryPag
 
     return pb.files.getURL(
       meal,
-      meal.image
+      meal.image,
+      { thumb: '100x100' }
     );
   };
 

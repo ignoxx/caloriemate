@@ -63,6 +63,20 @@ export function MealReviewModal({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
+  const getFullImageUrl = () => {
+    if (!meal.imageUrl) return "/placeholder.svg";
+    
+    if (!meal.mealTemplateId) return meal.imageUrl;
+    
+    const urlParts = meal.imageUrl.split('/');
+    const filename = urlParts[urlParts.length - 1].split('?')[0];
+    
+    return pb.files.getURL(
+      { id: meal.mealTemplateId, collectionId: '', collectionName: 'meal_templates' },
+      filename
+    );
+  };
+
   useEffect(() => {
     const loadSimilarMeals = async () => {
       try {
@@ -276,7 +290,7 @@ export function MealReviewModal({
           {/* Captured Image */}
           <div className="aspect-square w-full max-w-xs mx-auto rounded-lg overflow-hidden bg-gray-100">
             <img
-              src={meal.imageUrl || "/placeholder.svg"}
+              src={getFullImageUrl()}
               alt="Your meal"
               className="w-full h-full object-cover"
             />

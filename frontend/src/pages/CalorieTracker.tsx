@@ -161,7 +161,11 @@ export default function CalorieTracker() {
           fatUncertaintyPercent:
             (mealTemplate?.fat_uncertainty_percent as number) || 0,
           imageUrl: mealTemplate?.image
-            ? `${pb.baseURL}/api/files/meal_templates/${mealTemplate.id}/${mealTemplate.image}`
+            ? pb.files.getURL(
+                { id: mealTemplate.id as string, collectionId: '', collectionName: 'meal_templates' },
+                mealTemplate.image as string,
+                { thumb: '100x100' }
+              )
             : undefined,
           processingStatus: ((mealTemplate?.processing_status as string) ||
             "pending") as MealTemplatesProcessingStatusOptions,
