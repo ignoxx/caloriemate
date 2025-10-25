@@ -11,6 +11,7 @@ type Collection = string
 const (
 	COL_MEAL_TEMPLATES Collection = "meal_templates"
 	COL_MEAL_HISTORY   Collection = "meal_history"
+	COL_ACTIVITY_LOGS  Collection = "activity_logs"
 )
 
 type MealTemplate struct {
@@ -61,6 +62,17 @@ type UserProfiles struct {
 	Updated  time.Time `json:"updated"`
 }
 
+type ActivityLog struct {
+	ID              string    `json:"id,omitempty"`
+	User            string    `json:"user"`
+	ActivityType    string    `json:"activity_type"`
+	Steps           int       `json:"steps,omitempty"`
+	DurationMinutes int       `json:"duration_minutes,omitempty"`
+	CaloriesBurned  int       `json:"calories_burned"`
+	Created         time.Time `json:"created"`
+	Updated         time.Time `json:"updated"`
+}
+
 func MealTemplateFromRecord(r *core.Record) MealTemplate {
 	return MealTemplate{
 		ID:                        r.GetString("id"),
@@ -95,5 +107,18 @@ func MealHistoryFromRecord(r *core.Record) MealHistory {
 		Name:              r.GetString("meal_name"),
 		Created:           r.GetDateTime("created").Time(),
 		Updated:           r.GetDateTime("updated").Time(),
+	}
+}
+
+func ActivityLogFromRecord(r *core.Record) ActivityLog {
+	return ActivityLog{
+		ID:              r.GetString("id"),
+		User:            r.GetString("user"),
+		ActivityType:    r.GetString("activity_type"),
+		Steps:           r.GetInt("steps"),
+		DurationMinutes: r.GetInt("duration_minutes"),
+		CaloriesBurned:  r.GetInt("calories_burned"),
+		Created:         r.GetDateTime("created").Time(),
+		Updated:         r.GetDateTime("updated").Time(),
 	}
 }

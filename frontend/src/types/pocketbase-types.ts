@@ -11,6 +11,7 @@ export enum Collections {
 	Mfas = "_mfas",
 	Otps = "_otps",
 	Superusers = "_superusers",
+	ActivityLogs = "activity_logs",
 	MealHistory = "meal_history",
 	MealTemplates = "meal_templates",
 	UserProfiles = "user_profiles",
@@ -91,6 +92,20 @@ export type SuperusersRecord = {
 	tokenKey: string
 	updated?: IsoDateString
 	verified?: boolean
+}
+
+export enum ActivityLogsActivityTypeOptions {
+	"walking" = "walking",
+}
+export type ActivityLogsRecord = {
+	activity_type: ActivityLogsActivityTypeOptions
+	calories_burned?: number
+	created?: IsoDateString
+	duration_minutes?: number
+	id: string
+	steps?: number
+	updated?: IsoDateString
+	user: RecordIdString
 }
 
 export type MealHistoryRecord = {
@@ -192,6 +207,7 @@ export type ExternalauthsResponse<Texpand = unknown> = Required<ExternalauthsRec
 export type MfasResponse<Texpand = unknown> = Required<MfasRecord> & BaseSystemFields<Texpand>
 export type OtpsResponse<Texpand = unknown> = Required<OtpsRecord> & BaseSystemFields<Texpand>
 export type SuperusersResponse<Texpand = unknown> = Required<SuperusersRecord> & AuthSystemFields<Texpand>
+export type ActivityLogsResponse<Texpand = unknown> = Required<ActivityLogsRecord> & BaseSystemFields<Texpand>
 export type MealHistoryResponse<Texpand = unknown> = Required<MealHistoryRecord> & BaseSystemFields<Texpand>
 export type MealTemplatesResponse<Texpand = unknown> = Required<MealTemplatesRecord> & BaseSystemFields<Texpand>
 export type UserProfilesResponse<Texpand = unknown> = Required<UserProfilesRecord> & BaseSystemFields<Texpand>
@@ -205,6 +221,7 @@ export type CollectionRecords = {
 	_mfas: MfasRecord
 	_otps: OtpsRecord
 	_superusers: SuperusersRecord
+	activity_logs: ActivityLogsRecord
 	meal_history: MealHistoryRecord
 	meal_templates: MealTemplatesRecord
 	user_profiles: UserProfilesRecord
@@ -217,6 +234,7 @@ export type CollectionResponses = {
 	_mfas: MfasResponse
 	_otps: OtpsResponse
 	_superusers: SuperusersResponse
+	activity_logs: ActivityLogsResponse
 	meal_history: MealHistoryResponse
 	meal_templates: MealTemplatesResponse
 	user_profiles: UserProfilesResponse
@@ -232,6 +250,7 @@ export type TypedPocketBase = PocketBase & {
 	collection(idOrName: '_mfas'): RecordService<MfasResponse>
 	collection(idOrName: '_otps'): RecordService<OtpsResponse>
 	collection(idOrName: '_superusers'): RecordService<SuperusersResponse>
+	collection(idOrName: 'activity_logs'): RecordService<ActivityLogsResponse>
 	collection(idOrName: 'meal_history'): RecordService<MealHistoryResponse>
 	collection(idOrName: 'meal_templates'): RecordService<MealTemplatesResponse>
 	collection(idOrName: 'user_profiles'): RecordService<UserProfilesResponse>

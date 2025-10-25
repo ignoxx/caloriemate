@@ -3,6 +3,7 @@ import type {
   UserProfilesResponse, 
   MealTemplatesResponse, 
   MealHistoryResponse,
+  ActivityLogsResponse,
   UserProfilesGenderOptions,
   UserProfilesActivityLevelOptions,
   UserProfilesGoalOptions,
@@ -13,6 +14,7 @@ import type {
 export type UserProfile = UserProfilesResponse;
 export type MealTemplate = MealTemplatesResponse;
 export type MealHistoryEntry = MealHistoryResponse;
+export type ActivityLog = ActivityLogsResponse;
 
 // Type aliases for enums
 export type Gender = UserProfilesGenderOptions;

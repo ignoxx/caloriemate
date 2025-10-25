@@ -8,6 +8,7 @@ import {
   User,
   History,
   Calendar,
+  Footprints,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
@@ -23,11 +24,13 @@ import { Label } from "../components/ui/label";
 import { OnboardingModal } from "../components/onboarding-modal";
 import { MealReviewModal } from "../components/meal-review-modal";
 import { MealHistoryCard } from "../components/meal-history-card";
+import { ActivityLogModal } from "../components/activity-log-modal";
+import { ActivityCard } from "../components/activity-card";
 import { useAuth } from "../contexts/AuthContext";
 import ProfilePage from "./ProfilePage";
 import WeeklyHistoryPage from "./WeeklyHistoryPage";
 import MealLibraryPage from "./MealLibraryPage";
-import { UserGoals, OnboardingData } from "../types/common";
+import { UserGoals, OnboardingData, ActivityLog } from "../types/common";
 import { MealEntry, SimilarMeal } from "../types/meal";
 import { Collections, MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 
@@ -38,12 +41,15 @@ export default function CalorieTracker() {
   const [userGoals, setUserGoals] = useState<UserGoals | null>(null);
   const [todayCalories, setTodayCalories] = useState(0);
   const [todayProtein, setTodayProtein] = useState(0);
+  const [todayCaloriesBurned, setTodayCaloriesBurned] = useState(0);
   const [showMealReview, setShowMealReview] = useState(false);
   const [mealReviewMode, setMealReviewMode] = useState<"review" | "view">(
     "review",
   );
   const [selectedMeal, setSelectedMeal] = useState<MealEntry | null>(null);
   const [mealHistory, setMealHistory] = useState<MealEntry[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [showActivityModal, setShowActivityModal] = useState(false);
   const [mealDescription, setMealDescription] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -102,7 +108,7 @@ export default function CalorieTracker() {
     try {
       const records = await pb.collection("meal_history").getList(1, 20, {
         sort: "-created",
-        expand: "meal", // Expand the meal relation to get nutrition data
+        expand: "meal",
         filter: pb.filter(
           "adjustments != {:adjustment} && created > {:today}",
           {
@@ -159,12 +165,10 @@ export default function CalorieTracker() {
             "pending") as MealTemplatesProcessingStatusOptions,
           created: record.created,
           updated: record.updated,
-          // Add linking information
           linkedMealTemplateId:
             (mealTemplate?.linked_meal_template_id as string) || undefined,
           isPrimaryInGroup:
             (mealTemplate?.is_primary_in_group as boolean) || false,
-          // Add adjustment and portion information
           portionMultiplier,
           calorieAdjustment: (recordData.calorie_adjustment as number) || 0,
           proteinAdjustment: (recordData.protein_adjustment as number) || 0,
@@ -173,7 +177,6 @@ export default function CalorieTracker() {
         };
       });
 
-      // Filter meals to ensure only today's meals (client-side backup)
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todaysMeals = meals.filter((meal) => {
@@ -181,16 +184,13 @@ export default function CalorieTracker() {
         return mealDate >= todayStart;
       });
 
-      // Preserve any optimistic entries (those with temp IDs) and merge with real data
       setMealHistory((prevHistory) => {
         const optimisticEntries = prevHistory.filter((meal) =>
           meal.id.startsWith("temp_"),
         );
 
-        // Remove optimistic entries that have been replaced by real entries
         const validOptimisticEntries = optimisticEntries.filter(
           (optimistic) => {
-            // If we have a real meal with the same mealTemplateId, remove the optimistic one
             return (
               !optimistic.mealTemplateId ||
               !todaysMeals.some(
@@ -200,13 +200,11 @@ export default function CalorieTracker() {
           },
         );
 
-        // Combine optimistic entries with real meals, sorted by created date
         const combinedMeals = [...validOptimisticEntries, ...todaysMeals].sort(
           (a, b) =>
             new Date(b.created).getTime() - new Date(a.created).getTime(),
         );
 
-        // Check for newly completed meals that should trigger review modal
         const newlyCompletedMeals = todaysMeals.filter((meal) => {
           const wasProcessing = prevHistory.some(
             (prevMeal) =>
@@ -216,19 +214,16 @@ export default function CalorieTracker() {
           return meal.processingStatus === "completed" && wasProcessing;
         });
 
-        // Show review modal for the most recent newly completed meal
         if (newlyCompletedMeals.length > 0 && !selectedMeal) {
           const mostRecentCompleted = newlyCompletedMeals[0];
           setSelectedMeal(mostRecentCompleted);
-          setMealReviewMode("review"); // Set to review mode for new meals
+          setMealReviewMode("review");
           setShowMealReview(true);
         }
 
         return combinedMeals;
       });
 
-      // Calculate today's totals (only from completed real meals)
-      // Use the filtered today's meals and only include completed ones
       const completedTodayMeals = todaysMeals.filter(
         (meal: MealEntry) => meal.processingStatus === "completed",
       );
@@ -246,6 +241,28 @@ export default function CalorieTracker() {
       setTodayProtein(totalProtein);
     } catch (error) {
       console.error("Failed to load meal history:", error);
+    }
+  }, []);
+
+  const loadActivityLogs = useCallback(async () => {
+    try {
+      const records = await pb.collection(Collections.ActivityLogs).getList(1, 20, {
+        sort: "-created",
+        filter: pb.filter("created > {:today}", {
+          today: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
+        }),
+      });
+
+      const activities = records.items as unknown as ActivityLog[];
+      setActivityLogs(activities);
+
+      const totalBurned = activities.reduce(
+        (sum, activity) => sum + activity.calories_burned,
+        0,
+      );
+      setTodayCaloriesBurned(totalBurned);
+    } catch (error) {
+      console.error("Failed to load activity logs:", error);
     }
   }, []);
 
@@ -496,17 +513,15 @@ export default function CalorieTracker() {
 
   const handleSimilarMealSelected = async (similarMeal: SimilarMeal) => {
     try {
-      // Create new meal history record that references the meal template
       const newMealRecord = await pb.collection(Collections.MealHistory).create({
-        meal: similarMeal.id, // Reference to the meal_templates record
+        meal: similarMeal.id,
         user: pb.authStore.record?.id,
-        portion_multiplier: 1.0, // Default to 1x portion
+        portion_multiplier: 1.0,
         adjustments: `Selected from similar meal: ${similarMeal.name}`,
       });
 
       console.log("Created meal history from similar meal:", newMealRecord);
 
-      // Refresh meal history
       await loadMealHistory();
     } catch (error) {
       console.error("Error creating meal from similar meal:", error);
@@ -516,46 +531,65 @@ export default function CalorieTracker() {
     setSelectedMeal(null);
   };
 
+  const handleActivitySubmit = async (data: {
+    steps?: number;
+    durationMinutes?: number;
+    caloriesBurned: number;
+  }) => {
+    try {
+      await pb.collection(Collections.ActivityLogs).create({
+        user: user?.id,
+        activity_type: "walking",
+        steps: data.steps,
+        duration_minutes: data.durationMinutes,
+        calories_burned: data.caloriesBurned,
+      });
+
+      await loadActivityLogs();
+    } catch (error) {
+      console.error("Error logging activity:", error);
+    }
+  };
+
   // Check for daily reset and clear old data on mount
   useEffect(() => {
     const currentDate = new Date().toDateString();
 
-    // Always clear meal history on component mount to ensure fresh start
     setMealHistory([]);
+    setActivityLogs([]);
     setTodayCalories(0);
     setTodayProtein(0);
+    setTodayCaloriesBurned(0);
 
     if (currentDate !== lastResetDate) {
-      // New day detected - update the reset date
       setLastResetDate(currentDate);
-
-      // Force reload of meals for the new day
       hasLoadedMealsRef.current = false;
     }
 
-    // Load fresh meal history
     loadMealHistory();
-  }, [lastResetDate, loadMealHistory]);
+    loadActivityLogs();
+  }, [lastResetDate, loadMealHistory, loadActivityLogs]);
 
   // Set up interval to check for date changes (in case app stays open across midnight)
   useEffect(() => {
     const interval = setInterval(() => {
       const currentDate = new Date().toDateString();
       if (currentDate !== lastResetDate) {
-        // New day detected - reset daily state
         setTodayCalories(0);
         setTodayProtein(0);
+        setTodayCaloriesBurned(0);
         setMealHistory([]);
+        setActivityLogs([]);
         setLastResetDate(currentDate);
 
-        // Force reload of meals for the new day
         hasLoadedMealsRef.current = false;
         loadMealHistory();
+        loadActivityLogs();
       }
-    }, 60000); // Check every minute
+    }, 60000);
 
     return () => clearInterval(interval);
-  }, [lastResetDate, loadMealHistory]);
+  }, [lastResetDate, loadMealHistory, loadActivityLogs]);
 
   // Load user profile and check onboarding status
   useEffect(() => {
@@ -613,13 +647,14 @@ export default function CalorieTracker() {
   }
 
   const calorieProgress = userGoals
-    ? (todayCalories / userGoals.target_calories) * 100
+    ? ((todayCalories - todayCaloriesBurned) / userGoals.target_calories) * 100
     : 0;
   const proteinProgress = userGoals
     ? (todayProtein / userGoals.target_protein_g) * 100
     : 0;
   const isCalorieGoalMet = calorieProgress >= 100;
   const isProteinGoalMet = proteinProgress >= 100;
+  const netCalories = todayCalories - todayCaloriesBurned;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -683,7 +718,7 @@ export default function CalorieTracker() {
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold">
-                    {todayCalories} / {userGoals.target_calories}
+                    {netCalories} / {userGoals.target_calories}
                   </span>
                   {isCalorieGoalMet && (
                     <Badge variant="secondary" className="text-xs">
@@ -696,6 +731,12 @@ export default function CalorieTracker() {
                 value={Math.min(calorieProgress, 100)}
                 className="h-2"
               />
+              {todayCaloriesBurned > 0 && (
+                <div className="flex justify-between items-center mt-1 text-xs text-muted-foreground">
+                  <span>{todayCalories} consumed</span>
+                  <span className="text-green-600">-{todayCaloriesBurned} burned</span>
+                </div>
+              )}
             </div>
 
             {/* Protein */}
@@ -719,6 +760,17 @@ export default function CalorieTracker() {
                 value={Math.min(proteinProgress, 100)}
                 className="h-2"
               />
+            </div>
+
+            {/* Log Activity Button */}
+            <div className="pt-3 mt-1">
+              <button
+                onClick={() => setShowActivityModal(true)}
+                className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-2 border border-border rounded-md hover:border-green-500 dark:hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
+              >
+                <Footprints className="h-4 w-4" />
+                <span>Log walking activity</span>
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -819,6 +871,19 @@ export default function CalorieTracker() {
             ))}
           </div>
         )}
+
+        {/* Today's Activities */}
+        {activityLogs.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Footprints className="h-5 w-5 text-green-600" />
+              Today's Activities
+            </h2>
+            {activityLogs.map((activity) => (
+              <ActivityCard key={activity.id} activity={activity} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Hidden file input */}
@@ -844,6 +909,16 @@ export default function CalorieTracker() {
             setShowMealReview(false);
             setSelectedMeal(null);
           }}
+        />
+      )}
+
+      {/* Activity Log Modal */}
+      {userGoals && (
+        <ActivityLogModal
+          open={showActivityModal}
+          onClose={() => setShowActivityModal(false)}
+          onSubmit={handleActivitySubmit}
+          userWeightKg={userGoals.weight}
         />
       )}
     </div>
