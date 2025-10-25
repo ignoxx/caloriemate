@@ -31,6 +31,7 @@ interface MealReviewModalProps {
   onSimilarMealSelected?: (similarMeal: SimilarMeal) => void; // Optional for existing meals
   onMealRemoved?: () => void; // New: for removing existing meals
   onMealUpdated?: (meal: MealEntry) => void; // New: for updating existing meals
+  onReanalyze?: (meal: MealEntry) => void; // New: for re-analyzing meals
   onClose: () => void;
   mode?: 'review' | 'view'; // New: determines if this is for new meal review or existing meal view
 }
@@ -42,6 +43,7 @@ export function MealReviewModal({
   onSimilarMealSelected,
   onMealRemoved,
   onMealUpdated,
+  onReanalyze,
   onClose,
   mode = 'review',
 }: MealReviewModalProps) {
@@ -571,9 +573,22 @@ export function MealReviewModal({
 
         <DrawerFooter className="border-t">
           {mode === 'review' ? (
-            <Button onClick={handleConfirmMeal} className="w-full" size="lg">
-              Confirm Meal
-            </Button>
+            <div className="flex gap-2">
+              {onReanalyze && (
+                <Button
+                  onClick={() => onReanalyze(meal)}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  <Repeat className="h-4 w-4 mr-2" />
+                  Re-analyze
+                </Button>
+              )}
+              <Button onClick={handleConfirmMeal} className="w-full" size="lg">
+                Confirm Meal
+              </Button>
+            </div>
           ) : showCustomForm ? (
             <div className="flex gap-2">
               <DrawerClose asChild>
@@ -598,11 +613,24 @@ export function MealReviewModal({
               </Button>
             </div>
           ) : (
-            <DrawerClose asChild>
-              <Button variant="outline" className="w-full" size="lg">
-                Close
-              </Button>
-            </DrawerClose>
+            <div className="space-y-2">
+              {onReanalyze && (
+                <Button
+                  onClick={() => onReanalyze(meal)}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  <Repeat className="h-4 w-4 mr-2" />
+                  Re-analyze Meal
+                </Button>
+              )}
+              <DrawerClose asChild>
+                <Button variant="outline" className="w-full" size="lg">
+                  Close
+                </Button>
+              </DrawerClose>
+            </div>
           )}
         </DrawerFooter>
       </DrawerContent>

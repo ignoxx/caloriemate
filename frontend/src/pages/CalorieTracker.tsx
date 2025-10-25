@@ -10,6 +10,8 @@ import {
   Calendar,
   Footprints,
   Loader2,
+  Repeat,
+  X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
@@ -53,6 +55,7 @@ export default function CalorieTracker() {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [mealDescription, setMealDescription] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [reanalyzingMealId, setReanalyzingMealId] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
   const [showMealLibrary, setShowMealLibrary] = useState(false);
@@ -399,66 +402,100 @@ export default function CalorieTracker() {
     const tempId = `temp_${Date.now()}`;
     const imageUrl = URL.createObjectURL(selectedImage);
 
-    // Create optimistic meal entry that appears immediately
-    const optimisticMeal: MealEntry = {
-      id: tempId,
-      mealHistoryId: tempId, // Use tempId for optimistic entries
-      mealTemplateId: "",
-      name: mealDescription || "Analyzing meal...",
-      userContext: mealDescription || "",
-      aiDescription: "Analysis in progress...",
-      totalCalories: 0,
-      calorieUncertaintyPercent: 0,
-      totalProteinG: 0,
-      proteinUncertaintyPercent: 0,
-      totalCarbsG: 0,
-      carbsUncertaintyPercent: 0,
-      totalFatG: 0,
-      fatUncertaintyPercent: 0,
-      imageUrl: imageUrl,
-      processingStatus: MealTemplatesProcessingStatusOptions.processing,
-      created: new Date().toISOString(),
-      updated: new Date().toISOString(),
-    };
-
-    // Add optimistic entry to the beginning of meal history immediately
-    setMealHistory((prev) => [optimisticMeal, ...prev]);
-
     try {
-      const newMealTemplate = await pb.collection(Collections.MealTemplates).create({
-        image: selectedImage,
-        processing_status: "pending",
-        description: mealDescription || "",
-      });
+      if (reanalyzingMealId) {
+        // RE-ANALYZE: Update existing meal template
+        await pb.collection(Collections.MealTemplates).update(reanalyzingMealId, {
+          image: selectedImage,
+          description: mealDescription || "",
+          processing_status: "pending",
+        });
 
-      // Update the optimistic entry with the real ID and processing status
-      setMealHistory((prev) =>
-        prev.map((meal) =>
-          meal.id === tempId
-            ? {
-                ...meal,
-                id: newMealTemplate.id,
-                mealTemplateId: newMealTemplate.id,
-                processingStatus:
-                  MealTemplatesProcessingStatusOptions.processing,
-              }
-            : meal,
-        ),
-      );
+        // Update the existing entry in meal history to show processing status
+        setMealHistory((prev) =>
+          prev.map((meal) =>
+            meal.mealTemplateId === reanalyzingMealId
+              ? {
+                  ...meal,
+                  processingStatus: MealTemplatesProcessingStatusOptions.processing,
+                  userContext: mealDescription || "",
+                }
+              : meal,
+          ),
+        );
 
-      setSelectedImage(null);
-      setMealDescription("");
+        setSelectedImage(null);
+        setMealDescription("");
+        setReanalyzingMealId(null);
 
-      // Clean up the temporary URL
-      URL.revokeObjectURL(imageUrl);
+        // Clean up the temporary URL
+        URL.revokeObjectURL(imageUrl);
 
-      // Load fresh meal history to get any updates
-      await loadMealHistory();
+        // Load fresh meal history to get any updates
+        await loadMealHistory();
+      } else {
+        // NEW MEAL: Create optimistic meal entry that appears immediately
+        const optimisticMeal: MealEntry = {
+          id: tempId,
+          mealHistoryId: tempId,
+          mealTemplateId: "",
+          name: mealDescription || "Analyzing meal...",
+          userContext: mealDescription || "",
+          aiDescription: "Analysis in progress...",
+          totalCalories: 0,
+          calorieUncertaintyPercent: 0,
+          totalProteinG: 0,
+          proteinUncertaintyPercent: 0,
+          totalCarbsG: 0,
+          carbsUncertaintyPercent: 0,
+          totalFatG: 0,
+          fatUncertaintyPercent: 0,
+          imageUrl: imageUrl,
+          processingStatus: MealTemplatesProcessingStatusOptions.processing,
+          created: new Date().toISOString(),
+          updated: new Date().toISOString(),
+        };
+
+        // Add optimistic entry to the beginning of meal history immediately
+        setMealHistory((prev) => [optimisticMeal, ...prev]);
+
+        const newMealTemplate = await pb.collection(Collections.MealTemplates).create({
+          image: selectedImage,
+          processing_status: "pending",
+          description: mealDescription || "",
+        });
+
+        // Update the optimistic entry with the real ID and processing status
+        setMealHistory((prev) =>
+          prev.map((meal) =>
+            meal.id === tempId
+              ? {
+                  ...meal,
+                  id: newMealTemplate.id,
+                  mealTemplateId: newMealTemplate.id,
+                  processingStatus:
+                    MealTemplatesProcessingStatusOptions.processing,
+                }
+              : meal,
+          ),
+        );
+
+        setSelectedImage(null);
+        setMealDescription("");
+
+        // Clean up the temporary URL
+        URL.revokeObjectURL(imageUrl);
+
+        // Load fresh meal history to get any updates
+        await loadMealHistory();
+      }
     } catch (error) {
       console.error("Error uploading image:", error);
 
-      // Remove the optimistic entry on error
-      setMealHistory((prev) => prev.filter((meal) => meal.id !== tempId));
+      if (!reanalyzingMealId) {
+        // Remove the optimistic entry on error (only for new meals)
+        setMealHistory((prev) => prev.filter((meal) => meal.id !== tempId));
+      }
 
       // Clean up the temporary URL
       URL.revokeObjectURL(imageUrl);
@@ -539,6 +576,45 @@ export default function CalorieTracker() {
 
     setShowMealReview(false);
     setSelectedMeal(null);
+  };
+
+  const handleMealReanalyze = async (meal: MealEntry) => {
+    try {
+      if (!meal.mealTemplateId) {
+        console.error("Cannot re-analyze meal without template ID");
+        return;
+      }
+
+      const template = await pb.collection(Collections.MealTemplates).getOne(meal.mealTemplateId);
+      
+      if (!template.image) {
+        console.error("Cannot re-analyze meal without image");
+        return;
+      }
+
+      const imageUrl = pb.files.getURL(
+        { id: meal.mealTemplateId, collectionId: '', collectionName: 'meal_templates' },
+        template.image
+      );
+
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      
+      const file = new File([blob], template.image, { type: blob.type });
+      
+      setSelectedImage(file);
+      setMealDescription(meal.userContext || template.description || '');
+      setReanalyzingMealId(meal.mealTemplateId);
+      
+      setShowMealReview(false);
+      setSelectedMeal(null);
+      
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+    } catch (error) {
+      console.error("Error preparing meal for re-analysis:", error);
+    }
   };
 
   const handleActivitySubmit = async (data: {
@@ -791,24 +867,48 @@ export default function CalorieTracker() {
         {/* Add Meal Button */}
         <Card className="overflow-hidden border-2">
           <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 pb-4">
+            {reanalyzingMealId && (
+              <div className="mb-4 flex items-center gap-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 px-3 py-2 rounded-md text-sm border border-blue-200 dark:border-blue-800">
+                <Repeat className="h-4 w-4" />
+                <span className="font-medium">Re-analyzing meal</span>
+                <button
+                  onClick={() => {
+                    setReanalyzingMealId(null);
+                    setSelectedImage(null);
+                    setMealDescription("");
+                  }}
+                  className="ml-auto text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
                 <Camera className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">Add New Meal</h3>
-                <p className="text-xs text-muted-foreground">Snap and analyze instantly</p>
+                <h3 className="font-semibold text-foreground">
+                  {reanalyzingMealId ? "Re-analyze Meal" : "Add New Meal"}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {reanalyzingMealId 
+                    ? "Update details and re-submit for analysis" 
+                    : "Snap and analyze instantly"}
+                </p>
               </div>
             </div>
 
-            <Button
-              onClick={handleCameraCapture}
-              className="w-full shadow-md"
-              size="lg"
-            >
-              <Camera className="h-5 w-5 mr-2" />
-              Take a Photo
-            </Button>
+            {!selectedImage && (
+              <Button
+                onClick={handleCameraCapture}
+                className="w-full shadow-md"
+                size="lg"
+              >
+                <Camera className="h-5 w-5 mr-2" />
+                Take a Photo
+              </Button>
+            )}
           </div>
 
           <CardContent className="pt-4 space-y-4">
@@ -861,12 +961,12 @@ export default function CalorieTracker() {
                 {isSubmittingMeal ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Uploading...
+                    {reanalyzingMealId ? "Re-analyzing..." : "Uploading..."}
                   </>
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
-                    Analyze My Meal
+                    {reanalyzingMealId ? "Re-analyze Meal" : "Analyze My Meal"}
                   </>
                 )}
               </Button>
@@ -925,6 +1025,7 @@ export default function CalorieTracker() {
           onSimilarMealSelected={handleSimilarMealSelected}
           onMealRemoved={loadMealHistory}
           onMealUpdated={loadMealHistory}
+          onReanalyze={handleMealReanalyze}
           onClose={() => {
             setShowMealReview(false);
             setSelectedMeal(null);
