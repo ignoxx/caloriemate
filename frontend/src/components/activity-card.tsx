@@ -15,11 +15,11 @@ export function ActivityCard({ activity }: ActivityCardProps) {
   });
 
   return (
-    <Card className="transition-shadow bg-green-50 border-green-200">
+    <Card className="transition-shadow bg-green-50/50 border-green-200 dark:bg-green-950/20 dark:border-green-900/50">
       <CardContent className="p-1">
         <div className="flex gap-3 items-center">
-          <div className="w-20 h-20 rounded-lg overflow-hidden bg-green-100 flex-shrink-0 flex items-center justify-center">
-            <Footprints className="h-10 w-10 text-green-600" />
+          <div className="w-20 h-20 rounded-lg overflow-hidden bg-green-100 dark:bg-green-900/40 flex-shrink-0 flex items-center justify-center">
+            <Footprints className="h-10 w-10 text-green-600 dark:text-green-400" />
           </div>
 
           <div className="flex-1 min-w-0">
@@ -30,16 +30,16 @@ export function ActivityCard({ activity }: ActivityCardProps) {
             </div>
 
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <Badge variant="secondary" className="text-xs bg-green-200 text-green-800 border-green-300">
+              <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 border-green-200 dark:bg-green-900/60 dark:text-green-300 dark:border-green-800">
                 -{activity.calories_burned} kcal
               </Badge>
-              {activity.steps && (
-                <Badge variant="outline" className="text-xs border-green-300 text-green-700">
+              {activity.steps > 0 && (
+                <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:border-green-700 dark:text-green-400">
                   {activity.steps.toLocaleString()} steps
                 </Badge>
               )}
-              {activity.duration_minutes && (
-                <Badge variant="outline" className="text-xs border-green-300 text-green-700">
+              {activity.duration_minutes > 0 && (
+                <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:border-green-700 dark:text-green-400">
                   {activity.duration_minutes} min
                 </Badge>
               )}

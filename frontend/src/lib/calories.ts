@@ -4,10 +4,10 @@ export function calculateCaloriesBurnedFromSteps(
   steps: number,
   weightKg: number
 ): number {
-  const stepsPerMile = 2000;
-  const miles = steps / stepsPerMile;
-  const caloriesPerMile = weightKg * 0.57;
-  const totalCalories = miles * caloriesPerMile;
+  const avgStrideMeters = 0.700;
+  const distanceKm = (steps * avgStrideMeters) / 1000;
+  const caloriesPerKm = weightKg * 0.7;
+  const totalCalories = distanceKm * caloriesPerKm;
   return Math.round(totalCalories * CONSERVATIVE_FACTOR);
 }
 
