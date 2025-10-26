@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  clip:
+    build:
+      context: ./clip
+      dockerfile: Dockerfile
+    container_name: caloriemate-clip
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: caloriemate-app
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - STAGE=prod
+      - CLIP_HOST=http://clip:8001
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_VISION_MODEL=${OPENROUTER_VISION_MODEL:-google/gemini-2.5-flash}
+    volumes:
+      - pb_data:/pb/pb_data
+    depends_on:
+      clip:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pb_data:
