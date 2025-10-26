@@ -1,8 +1,8 @@
 # CalorieMate
 
 <p align="center">
-  <img src=".github/screen1.png" alt="CalorieMate Screenshot 1" width="45%">
-  <img src=".github/screen2.png" alt="CalorieMate Screenshot 2" width="45%">
+  <img src=".github/screen1.png" alt="CalorieMate Screenshot 1" width="20%">
+  <img src=".github/screen2.png" alt="CalorieMate Screenshot 2" width="20%">
 </p>
 
 A personal project I built to help track what I eat without overthinking it. The idea is simple: snap a photo of your meal, let AI give you a rough estimate of calories and protein, and get back to eating. No fuss, no precise measurements, just enough info to build awareness of what you're consuming.
