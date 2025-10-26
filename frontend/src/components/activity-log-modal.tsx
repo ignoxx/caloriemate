@@ -114,9 +114,6 @@ export function ActivityLogModal({ open, onClose, onSubmit, userWeightKg }: Acti
           <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full">
             Log Activity
           </Button>
-          <Button variant="outline" onClick={onClose} className="w-full">
-            Cancel
-          </Button>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
