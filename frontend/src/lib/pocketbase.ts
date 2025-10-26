@@ -2,7 +2,7 @@ import PocketBase from 'pocketbase'
 import { SimilarMeal } from "../types/meal";
 import { TypedPocketBase, UsersResponse } from "../types/pocketbase-types";
 
-const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://localhost:8090') as TypedPocketBase
+const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || '/') as TypedPocketBase
 
 // Helper function to fetch similar meals
 export const fetchSimilarMeals = async (mealId: string): Promise<SimilarMeal[]> => {
