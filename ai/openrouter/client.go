@@ -18,6 +18,7 @@ import (
 
 type Client struct {
 	*openrouter.Client
+	visionModel string
 }
 
 func New() *Client {
@@ -26,9 +27,17 @@ func New() *Client {
 		panic("OPENROUTER_API_KEY environment variable not set")
 	}
 
+	visionModel, ok := os.LookupEnv("OPENROUTER_VISION_MODEL")
+	if !ok {
+		visionModel = "google/gemini-2.5-flash"
+	}
+
 	client := openrouter.NewClient(apiToken)
 
-	return &Client{client}
+	return &Client{
+		Client:      client,
+		visionModel: visionModel,
+	}
 }
 
 func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (types.MealTemplate, error) {
@@ -57,7 +66,7 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	}
 
 	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
-		Model: "google/gemini-2.5-flash",
+		Model: c.visionModel,
 		// Temperature: 0.2,
 		Reasoning: &openrouter.ChatCompletionReasoning{
 			Effort: utils.ToPtr("low"),
