@@ -2,7 +2,7 @@
 
 A personal project I built to help track what I eat without overthinking it. The idea is simple: snap a photo of your meal, let AI give you a rough estimate of calories and protein, and get back to eating. No fuss, no precise measurements—just enough info to build awareness of what you're consuming.
 
-At the time of writing, I've managed to lose about 7kg using this approach. The goal was never to track everything perfectly, but to get a feel for my eating habits until I could develop that intuition naturally and move on.
+At the time of writing, I've managed to lose about 7kg using this approach. The goal was never to track everything perfectly, but to get a feel for my eating habits until I can develop that intuition naturally and move on.
 
 I'm making this public in case anyone else finds it useful and wants to self-host their own instance.
 
@@ -12,7 +12,7 @@ The core workflow is dead simple:
 - Open the app, take a quick picture of your food
 - AI analyzes it and gives you rough calorie/protein estimates
 - Start eating, no waiting around
-- Later, if you want, you can review the meal, add more context (like "this was a large portion" or "homemade pasta"), and re-analyze for a better estimate
+- Later, if you want, you can review the meal, add more context (like "this was a large portion" or "180g of oat, 30g of whey protein and 200ml milk", "burata pizza"), and re-analyze for a better estimate
 
 The app focuses on calories and protein since those were my main concerns. The more details you provide, the more accurate the estimates get, but even with minimal info, you get ballpark numbers that are good enough to track trends.
 
@@ -54,12 +54,26 @@ That's all you need. Optionally, you can also set:
 docker compose up -d
 ```
 
-4. Watch the logs until you see the admin setup URL:
+On first startup, check the logs to grab the admin setup URL with token:
 ```bash
-docker compose logs -f app
+docker compose logs app | grep "pbinstal"
 ```
 
-Look for a line that shows an admin setup URL. Open that URL in your browser to create your admin account and start using the app.
+Or view the full logs:
+```bash
+docker compose logs app
+```
+
+Look for a line like:
+```
+http://0.0.0.0:8080/_/#/pbinstal/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Copy that full URL (including the token) and open it in your browser to create your superuser account.
+
+4. Open the app in your browser:
+- Main app: `http://localhost:8080`
+- Admin dashboard: `http://localhost:8080/_/`
 
 That's it. The app runs two services: the main app (backend + frontend) and a CLIP service for image embeddings. All your data (database, meal photos) is stored in a Docker volume, so it persists between restarts.
 
@@ -98,7 +112,7 @@ If you want to hack on this locally without Docker:
 
 - Go 1.25+
 - Node.js 22+
-- Python 3.11+ (for CLIP service)
+- Docker (for CLIP service)
 - OpenRouter API key
 
 ### Running locally
@@ -136,10 +150,14 @@ make run
 make fe
 ```
 
-7. Create the superuser:
+7. Create a test superuser (login: test@test.com / test12345):
 ```bash
 make setup-su
 ```
+
+Then access:
+- Main app: `http://localhost:8080`
+- Admin dashboard: `http://localhost:8080/_/`
 
 ## Tech Stack
 
@@ -149,7 +167,6 @@ Just some notes on what I used:
 - **Frontend**: React, TypeScript, Tailwind CSS, shadcn/ui
 - **AI**: OpenRouter API (using Gemini 2.5 Flash for meal analysis), OpenAI CLIP for image embeddings
 - **Database**: SQLite with sqlite-vec extension for vector similarity search
-- **Image Processing**: Python, PyTorch, FastAPI for the CLIP service
 
 ## A note on accuracy
 
