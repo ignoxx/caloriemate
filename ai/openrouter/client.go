@@ -25,8 +25,8 @@ func New() *Client {
 		panic("OPENROUTER_API_KEY environment variable not set")
 	}
 
-	visionModel, ok := os.LookupEnv("OPENROUTER_VISION_MODEL")
-	if !ok {
+	visionModel := os.Getenv("OPENROUTER_VISION_MODEL")
+	if visionModel == "" {
 		visionModel = "google/gemini-2.5-flash"
 	}
 

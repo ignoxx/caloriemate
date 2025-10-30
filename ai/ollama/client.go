@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os"
 
 	"github.com/ignoxx/caloriemate/ai"
 	"github.com/ignoxx/caloriemate/types"
@@ -13,22 +14,26 @@ import (
 	"github.com/ollama/ollama/api"
 )
 
-const (
-	VISION_MODEL = "qwen3-vl:8b"
-	TEXT_MODEl   = "gemma3n:e4b"
-)
-
 type Client struct {
 	*api.Client
+	visionModel string
 }
 
 func New() *Client {
 	client, err := api.ClientFromEnvironment()
 	if err != nil {
-		panic(err)
+		panic("failed to create Ollama client: " + err.Error())
 	}
 
-	return &Client{client}
+	visionModel := os.Getenv("OLLAMA_VISION_MODEL")
+	if visionModel == "" {
+		visionModel = "qwen3-vl:8b"
+	}
+
+	return &Client{
+		Client:      client,
+		visionModel: visionModel,
+	}
 }
 
 func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (types.MealTemplate, error) {
@@ -71,7 +76,7 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	}
 
 	req := api.ChatRequest{
-		Model:  VISION_MODEL,
+		Model:  c.visionModel,
 		Stream: utils.ToPtr(false),
 		Messages: []api.Message{
 			{

@@ -22,6 +22,7 @@ import (
 
 	"github.com/ignoxx/caloriemate/ai"
 	"github.com/ignoxx/caloriemate/ai/clip"
+	"github.com/ignoxx/caloriemate/ai/ollama"
 	"github.com/ignoxx/caloriemate/ai/openrouter"
 	"github.com/ignoxx/caloriemate/api"
 	_ "github.com/ignoxx/caloriemate/migrations"
@@ -92,11 +93,26 @@ func main() {
 	}
 
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
-		// enable auto creation of migration files when making collection changes in the Dashboard
 		Automigrate: stage == "dev",
 	})
 
-	var llm ai.Analyzer = openrouter.New()
+	aiProvider := os.Getenv("AI_PROVIDER")
+	if aiProvider == "" {
+		aiProvider = "ollama"
+	}
+
+	var llm ai.Analyzer
+	switch aiProvider {
+	case "ollama":
+		llm = ollama.New()
+		app.Logger().Info("Using Ollama AI provider")
+	case "openrouter":
+		llm = openrouter.New()
+		app.Logger().Info("Using OpenRouter AI provider")
+	default:
+		log.Fatalf("Unknown AI_PROVIDER: %s (valid options: ollama, openrouter)", aiProvider)
+	}
+
 	var imgLlm ai.Embedder = clip.New()
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
@@ -362,4 +378,3 @@ func createMealHistory(app core.App, record *core.Record) error {
 	slog.Info("Auto-created meal_history record", "mealTemplateId", record.Id, "mealHistoryId", mealHistoryRecord.Id)
 	return nil
 }
-
