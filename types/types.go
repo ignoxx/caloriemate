@@ -75,6 +75,19 @@ type ActivityLog struct {
 	Updated         time.Time `json:"updated"`
 }
 
+type SimilarMeal struct {
+	ID            string  `json:"id" db:"id"`
+	Name          string  `json:"name" db:"name"`
+	Distance      float32 `json:"distance" db:"distance"`
+	TotalCalories float64 `json:"total_calories" db:"total_calories"`
+	TotalProteinG float64 `json:"total_protein_g" db:"total_protein_g"`
+	TotalCarbsG   float64 `json:"total_carbs_g" db:"total_carbs_g"`
+	TotalFatG     float64 `json:"total_fat_g" db:"total_fat_g"`
+	AiDescription string  `json:"ai_description" db:"ai_description"`
+	ImageURL      string  `json:"image_url,omitempty"`
+	Created       string  `json:"created" db:"created"`
+}
+
 func MealTemplateFromRecord(r *core.Record) MealTemplate {
 	return MealTemplate{
 		ID:                        r.GetString("id"),

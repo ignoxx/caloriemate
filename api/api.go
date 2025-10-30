@@ -7,50 +7,45 @@ import (
 	"github.com/ignoxx/caloriemate/ai"
 	"github.com/ignoxx/caloriemate/ai/clip"
 	"github.com/ignoxx/caloriemate/types"
-	"github.com/ignoxx/caloriemate/utils"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 func HandleGetSimilarMealTemplates(e *core.RequestEvent) error {
-	id := e.Request.PathValue("id")
+	mealID := e.Request.PathValue("id")
 
-	// Get the meal template record
-	record, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, id)
+	mealRecord, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, mealID)
 	if err != nil {
-		slog.Error("Failed to find meal template", "id", id, "error", err)
 		return apis.NewNotFoundError("Meal template not found", err)
 	}
 
-	// Check if user owns this meal
-	ri, err := e.RequestInfo()
-	if err != nil || ri.Auth == nil {
-		return apis.NewUnauthorizedError("Authentication required", nil)
+	if mealRecord.GetString("user") != e.Auth.Id {
+		return apis.NewForbiddenError("User not authorized to access this meal", nil)
 	}
 
-	if record.GetString("user") != ri.Auth.Id {
-		return apis.NewForbiddenError("Access denied", nil)
-	}
-
-	// Get the image and generate embedding
-	imageNames := record.GetStringSlice("image")
+	imageNames := mealRecord.GetStringSlice("image")
 	if len(imageNames) == 0 {
 		return apis.NewBadRequestError("No image found for this meal", nil)
 	}
 
-	path := record.BaseFilesPath() + "/" + imageNames[0]
-	fsys, _ := e.App.NewFilesystem()
+	path := mealRecord.BaseFilesPath() + "/" + imageNames[0]
+	fsys, err := e.App.NewFilesystem()
+	if err != nil {
+		return apis.NewInternalServerError("Could not create filesystem", err)
+	}
+
 	imageFile, err := fsys.GetReader(path)
 	if err != nil {
-		slog.Error("Failed to open meal template image", "error", err)
 		return apis.NewBadRequestError("Could not read image", err)
 	}
+
 	defer imageFile.Close()
+	defer fsys.Close()
 
-	var imgLlm ai.Embedder = clip.New()
+	var c ai.Embedder = clip.New()
 
-	// Generate image embedding
-	rawEmbedding, err := imgLlm.GenerateEmbeddings(imageFile)
+	rawEmbedding, err := c.GenerateEmbeddings(imageFile)
 	if err != nil {
 		slog.Error("Failed to generate image embedding", "error", err)
 		return apis.NewBadRequestError("Could not analyze image", err)
@@ -62,66 +57,43 @@ func HandleGetSimilarMealTemplates(e *core.RequestEvent) error {
 		return apis.NewBadRequestError("Could not process image", err)
 	}
 
-	// Find similar meals
-	similarMeals, err := utils.FindSimilarMeals(e.App, mealVector, 4) // Get 4 to exclude self
+	similarMeals, err := findSimilarMeals(e.App, mealVector, mealID, 3)
 	if err != nil {
-		slog.Error("Failed to find similar meals", "error", err)
 		return apis.NewBadRequestError("Could not find similar meals", err)
 	}
 
-	// Filter out the current meal and limit to 3
-	var results []utils.SimilarMeal
-	for _, meal := range similarMeals {
-		if meal.ID != id {
-			results = append(results, meal)
-			if len(results) >= 3 {
-				break
-			}
-		}
-	}
-
-	return e.JSON(200, results)
-
+	return e.JSON(200, similarMeals)
 }
 
 func HandlePostMealLink(e *core.RequestEvent) error {
-	id := e.Request.PathValue("id")
-	targetId := e.Request.PathValue("targetId")
+	mealID := e.Request.PathValue("id")
+	mealTargetID := e.Request.PathValue("targetId")
 
-	// Get request info for authentication
-	ri, err := e.RequestInfo()
-	if err != nil || ri.Auth == nil {
-		return apis.NewUnauthorizedError("Authentication required", nil)
-	}
-
-	// Get both meal template records
-	record, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, id)
+	mealRecord, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, mealID)
 	if err != nil {
 		return apis.NewNotFoundError("Meal template not found", err)
 	}
 
-	targetRecord, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, targetId)
+	mealTargetRecord, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, mealTargetID)
 	if err != nil {
 		return apis.NewNotFoundError("Target meal template not found", err)
 	}
 
-	// Check ownership of both records
-	if record.GetString("user") != ri.Auth.Id || targetRecord.GetString("user") != ri.Auth.Id {
+	if mealRecord.GetString("user") != e.Auth.Id || mealTargetRecord.GetString("user") != e.Auth.Id {
 		return apis.NewForbiddenError("Access denied", nil)
 	}
 
 	// Link the current meal to the target meal
-	record.Set("linked_meal_template_id", targetId)
+	mealRecord.Set("linked_meal_template_id", mealTargetID)
 
-	// If target meal is not already primary in a group, make it primary
-	if !targetRecord.GetBool("is_primary_in_group") {
-		targetRecord.Set("is_primary_in_group", true)
-		if err := e.App.Save(targetRecord); err != nil {
+	if !mealTargetRecord.GetBool("is_primary_in_group") {
+		mealTargetRecord.Set("is_primary_in_group", true)
+		if err := e.App.Save(mealTargetRecord); err != nil {
 			return apis.NewBadRequestError("Failed to update target meal", err)
 		}
 	}
 
-	if err := e.App.Save(record); err != nil {
+	if err := e.App.Save(mealRecord); err != nil {
 		return apis.NewBadRequestError("Failed to link meals", err)
 	}
 
@@ -131,63 +103,21 @@ func HandlePostMealLink(e *core.RequestEvent) error {
 	})
 }
 
-func HandlePostMealUnlink(e *core.RequestEvent) error {
-	id := e.Request.PathValue("id")
-
-	// Get request info for authentication
-	ri, err := e.RequestInfo()
-	if err != nil || ri.Auth == nil {
-		return apis.NewUnauthorizedError("Authentication required", nil)
-	}
-
-	// Get the meal template record
-	record, err := e.App.FindRecordById(types.COL_MEAL_TEMPLATES, id)
-	if err != nil {
-		return apis.NewNotFoundError("Meal template not found", err)
-	}
-
-	// Check ownership
-	if record.GetString("user") != ri.Auth.Id {
-		return apis.NewForbiddenError("Access denied", nil)
-	}
-
-	// Unlink the meal
-	record.Set("linked_meal_template_id", "")
-
-	if err := e.App.Save(record); err != nil {
-		return apis.NewBadRequestError("Failed to unlink meal", err)
-	}
-
-	return e.JSON(200, map[string]any{
-		"success": true,
-		"message": "Meal unlinked successfully",
-	})
-}
-
 func HandlePostMealHide(e *core.RequestEvent) error {
-	id := e.Request.PathValue("id")
+	mealID := e.Request.PathValue("id")
 
-	// Get request info for authentication
-	ri, err := e.RequestInfo()
-	if err != nil || ri.Auth == nil {
-		return apis.NewUnauthorizedError("Authentication required", nil)
-	}
-
-	// Get the meal history record
-	record, err := e.App.FindRecordById("meal_history", id)
+	mealRecord, err := e.App.FindRecordById("meal_history", mealID)
 	if err != nil {
 		return apis.NewNotFoundError("Meal history not found", err)
 	}
 
-	// Check ownership
-	if record.GetString("user") != ri.Auth.Id {
+	if mealRecord.GetString("user") != e.Auth.Id {
 		return apis.NewForbiddenError("Access denied", nil)
 	}
 
-	// Use the adjustments field to store status (hidden)
-	record.Set("adjustments", "hidden")
+	mealRecord.Set("adjustments", "hidden")
 
-	if err := e.App.Save(record); err != nil {
+	if err := e.App.Save(mealRecord); err != nil {
 		return apis.NewBadRequestError("Failed to hide meal", err)
 	}
 
@@ -196,30 +126,23 @@ func HandlePostMealHide(e *core.RequestEvent) error {
 		"message": "Meal hidden successfully",
 	})
 }
+
 func HandlePostMealUnhide(e *core.RequestEvent) error {
-	id := e.Request.PathValue("id")
+	mealID := e.Request.PathValue("id")
 
-	// Get request info for authentication
-	ri, err := e.RequestInfo()
-	if err != nil || ri.Auth == nil {
-		return apis.NewUnauthorizedError("Authentication required", nil)
-	}
-
-	// Get the meal history record
-	record, err := e.App.FindRecordById("meal_history", id)
+	mealRecord, err := e.App.FindRecordById("meal_history", mealID)
 	if err != nil {
 		return apis.NewNotFoundError("Meal history not found", err)
 	}
 
-	// Check ownership
-	if record.GetString("user") != ri.Auth.Id {
+	if mealRecord.GetString("user") != e.Auth.Id {
 		return apis.NewForbiddenError("Access denied", nil)
 	}
 
 	// Clear the adjustments field to unhide
-	record.Set("adjustments", "")
+	mealRecord.Set("adjustments", "")
 
-	if err := e.App.Save(record); err != nil {
+	if err := e.App.Save(mealRecord); err != nil {
 		return apis.NewBadRequestError("Failed to unhide meal", err)
 	}
 
@@ -227,4 +150,69 @@ func HandlePostMealUnhide(e *core.RequestEvent) error {
 		"success": true,
 		"message": "Meal restored successfully",
 	})
+}
+
+func findSimilarMeals(app core.App, mealVector []byte, mealID string, limit int) ([]types.SimilarMeal, error) {
+	var matches []struct {
+		MealTemplateID string  `db:"meal_template_id"`
+		Distance       float32 `db:"distance"`
+	}
+
+	err := app.DB().NewQuery(`
+		SELECT meal_template_id, distance
+		FROM meal_image_vectors,
+		WHERE embedding MATCH {:mealVector} AND k = {:limit} AND meal_template_id != {:mealID}
+		LIMIT {:limit}
+	`).Bind(dbx.Params{"mealVector": mealVector, "limit": limit, "mealID": mealID}).All(&matches)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(matches) == 0 {
+		return []types.SimilarMeal{}, nil
+	}
+
+	var mealIDs []any
+	for _, match := range matches {
+		mealIDs = append(mealIDs, match.MealTemplateID)
+	}
+
+	var meals []types.SimilarMeal
+	err = app.DB().Select("id", "name", "total_calories", "total_protein_g", "total_carbs_g", "total_fat_g", "ai_description", "created").
+		From(types.COL_MEAL_TEMPLATES).
+		Where(dbx.In("id", mealIDs...)).
+		AndWhere(dbx.HashExp{"processing_status": "completed"}).
+		OrderBy("created DESC").
+		All(&meals)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Add distance information and create image URLs
+	mealMap := make(map[string]*types.SimilarMeal)
+	for i := range meals {
+		mealMap[meals[i].ID] = &meals[i]
+	}
+
+	var result []types.SimilarMeal
+	for _, match := range matches {
+		if meal, exists := mealMap[match.MealTemplateID]; exists {
+			meal.Distance = match.Distance
+
+			// Get image URL - we'll need the actual record for this
+			record, err := app.FindRecordById(types.COL_MEAL_TEMPLATES, meal.ID)
+			if err == nil {
+				imageFiles := record.GetStringSlice("image")
+				if len(imageFiles) > 0 {
+					meal.ImageURL = app.Settings().Meta.AppURL + "/api/files/" + record.Collection().Name + "/" + record.Id + "/" + imageFiles[0]
+				}
+			}
+
+			result = append(result, *meal)
+		}
+	}
+
+	return result, nil
 }

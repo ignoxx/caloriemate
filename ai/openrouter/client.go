@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/ignoxx/caloriemate/ai"
 	"github.com/ignoxx/caloriemate/types"
@@ -32,10 +30,8 @@ func New() *Client {
 		visionModel = "google/gemini-2.5-flash"
 	}
 
-	client := openrouter.NewClient(apiToken)
-
 	return &Client{
-		Client:      client,
+		Client:      openrouter.NewClient(apiToken),
 		visionModel: visionModel,
 	}
 }
@@ -67,7 +63,6 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 
 	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
 		Model: c.visionModel,
-		// Temperature: 0.2,
 		Reasoning: &openrouter.ChatCompletionReasoning{
 			Effort: utils.ToPtr("low"),
 		},
@@ -97,7 +92,7 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	}
 
 	if len(resp.Choices) > 0 {
-		meal, err := c.validateJSON(resp.Choices[0].Message.Content.Text)
+		meal, err := utils.ValidateJSON(resp.Choices[0].Message.Content.Text)
 		if err != nil {
 			return types.MealTemplate{}, errors.New("response JSON validation failed with: " + err.Error())
 		}
@@ -108,15 +103,5 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	return types.MealTemplate{}, errors.New("no choices in response")
 }
 
-func (c *Client) validateJSON(s string) (types.MealTemplate, error) {
-	s, _ = strings.CutPrefix(s, "```json")
-	s, _ = strings.CutPrefix(s, "```")
-	s, _ = strings.CutSuffix(s, "```")
-
-	var meal types.MealTemplate
-	err := json.Unmarshal([]byte(s), &meal)
-
-	return meal, err
-}
-
+// Make sure Client implements ai.Analyzer
 var _ ai.Analyzer = (*Client)(nil)

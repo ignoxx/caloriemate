@@ -38,19 +38,15 @@ func New() *CLIPClient {
 func (c *CLIPClient) GenerateEmbeddings(image io.ReadSeeker) ([]float32, error) {
 	embeddings, err := c.generateEmbeddingsWithError(image)
 	if err != nil {
-		// Log error and return empty slice
-		// In production, you might want to handle this differently
 		return []float32{}, err
 	}
 	return embeddings, nil
 }
 
 func (c *CLIPClient) generateEmbeddingsWithError(image io.ReadSeeker) ([]float32, error) {
-	// Create multipart form
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
-	// Add the image file with proper MIME type
 	part, err := writer.CreatePart(map[string][]string{
 		"Content-Disposition": {`form-data; name="file"; filename="image.jpg"`},
 		"Content-Type":        {"image/jpeg"},
@@ -69,7 +65,6 @@ func (c *CLIPClient) generateEmbeddingsWithError(image io.ReadSeeker) ([]float32
 		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
-	// Make request to CLIP service
 	req, err := http.NewRequest("POST", c.baseURL+"/embed/image", &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -88,7 +83,6 @@ func (c *CLIPClient) generateEmbeddingsWithError(image io.ReadSeeker) ([]float32
 		return nil, fmt.Errorf("CLIP service error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	// Parse response
 	var embeddingResp EmbeddingResponse
 	err = json.NewDecoder(resp.Body).Decode(&embeddingResp)
 	if err != nil {

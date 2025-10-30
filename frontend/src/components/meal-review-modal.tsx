@@ -20,7 +20,7 @@ import {
 
 import { X, CheckCircle, Plus, Repeat, Trash2, Link as LinkIcon, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { MealEntry, SimilarMeal } from "../types/meal";
-import { MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
+import { Collections, MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 import { fetchSimilarMeals } from "../lib/pocketbase";
 import pb from "../lib/pocketbase";
 
@@ -67,12 +67,12 @@ export function MealReviewModal({
 
   const getFullImageUrl = () => {
     if (!meal.imageUrl) return "/placeholder.svg";
-    
+
     if (!meal.mealTemplateId) return meal.imageUrl;
-    
+
     const urlParts = meal.imageUrl.split('/');
     const filename = urlParts[urlParts.length - 1].split('?')[0];
-    
+
     return pb.files.getURL(
       { id: meal.mealTemplateId, collectionId: '', collectionName: 'meal_templates' },
       filename
@@ -81,12 +81,14 @@ export function MealReviewModal({
 
   useEffect(() => {
     const loadSimilarMeals = async () => {
+      console.log("LOADING SIMILAR MEALS FOR:", meal)
       try {
         // For existing meals, use mealTemplateId if available, otherwise use id
         const templateId = meal.mealTemplateId || meal.id;
         let similar = await fetchSimilarMeals(templateId);
         similar = similar.filter((meal) => Math.round((1 - meal.distance) * 100) >= 70)
         setSimilarMeals(similar);
+        console.log("SET SIMILAR:", similar)
       } catch (error) {
         console.error("Failed to load similar meals:", error);
       } finally {
@@ -220,7 +222,7 @@ export function MealReviewModal({
         : (meal.fatAdjustment || 0);
 
       // Update meal_history with adjustments
-      await pb.collection('meal_history').update(meal.mealHistoryId, {
+      await pb.collection(Collections.MealHistory).update(meal.mealHistoryId, {
         calorie_adjustment: calorieAdjustment,
         protein_adjustment: proteinAdjustment,
         carb_adjustment: carbAdjustment,

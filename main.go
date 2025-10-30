@@ -59,6 +59,112 @@ type mealMatch struct {
 	Distance       float32 `db:"distance"`
 }
 
+func main() {
+	app := pocketbase.NewWithConfig(pocketbase.Config{
+		DBConnect: func(dbPath string) (*dbx.DB, error) {
+			db, err := dbx.Open("pb_sqlite3_vec", dbPath)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = db.NewQuery("SELECT vec_version()").Execute()
+			if err != nil {
+				log.Printf("Warning: vec extension not available: %v", err)
+			} else {
+				log.Printf("sqlite-vec extension loaded successfully!")
+			}
+
+			return db, nil
+		},
+	})
+
+	godotenv.Load()
+	app.Logger().Info(".env file loaded")
+
+	ai.LoadTemplates()
+	app.Logger().Info("AI templates loaded")
+
+	stage := os.Getenv("STAGE")
+
+	distDirFs := os.DirFS("./pb_public")
+	if stage == "prod" {
+		distDirFs, _ = fs.Sub(distDir, "frontend/build")
+	}
+
+	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
+		// enable auto creation of migration files when making collection changes in the Dashboard
+		Automigrate: stage == "dev",
+	})
+
+	var llm ai.Analyzer = openrouter.New()
+	var imgLlm ai.Embedder = clip.New()
+
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		// serves static FE files
+		se.Router.GET("/{path...}", apis.Static(distDirFs, true))
+
+		cr := se.Router.Group("/api/v1")
+		cr.Bind(apis.RequireAuth())
+
+		cr.GET("/similar/{id}", api.HandleGetSimilarMealTemplates)
+		cr.POST("/meal/{id}/link/{targetId}", api.HandlePostMealLink)
+		cr.POST("/meal/{id}/hide", api.HandlePostMealHide)
+
+		return se.Next()
+	})
+
+	app.OnRecordCreateRequest(types.COL_MEAL_TEMPLATES).BindFunc(func(e *core.RecordRequestEvent) error {
+		ri, err := e.RequestInfo()
+		if err != nil {
+			slog.Error("Failed to get request info", "error", err)
+			return errors.New("failed to get request info: " + err.Error())
+		}
+
+		if ri.Auth == nil {
+			slog.Warn("Unauthenticated user tried to create meal template")
+			return apis.NewUnauthorizedError("Unauthorized", nil)
+		}
+
+		slog.Info("Setting meal template user", "userId", ri.Auth.Id, "recordId", e.Record.Id)
+
+		e.Record.Set("user", ri.Auth.Id)
+
+		return e.Next()
+	})
+
+	app.OnRecordAfterCreateSuccess(types.COL_MEAL_TEMPLATES).BindFunc(func(e *core.RecordEvent) error {
+		if err := processMealTemplate(e.App, e.Record, llm, imgLlm); err != nil {
+			return e.Next()
+		}
+
+		if err := createMealHistory(e.App, e.Record); err != nil {
+			slog.Error("Failed to create meal_history", "error", err)
+		}
+
+		return e.Next()
+	})
+
+	app.OnRecordAfterUpdateSuccess(types.COL_MEAL_TEMPLATES).BindFunc(func(e *core.RecordEvent) error {
+		oldStatus := e.Record.Original().GetString("processing_status")
+		newStatus := e.Record.GetString("processing_status")
+
+		if oldStatus != "pending" && newStatus == "pending" {
+			slog.Info("Re-analyzing meal template", "recordId", e.Record.Id)
+			if err := processMealTemplate(e.App, e.Record, llm, imgLlm); err != nil {
+				return e.Next()
+			}
+		}
+
+		return e.Next()
+	})
+
+	app.Logger().Info("Starting app", "stage", stage)
+
+	if err := app.Start(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 func getImageReader(app core.App, record *core.Record) (io.ReadSeekCloser, error) {
 	imageNames := record.GetStringSlice("image")
 	if len(imageNames) == 0 {
@@ -257,108 +363,3 @@ func createMealHistory(app core.App, record *core.Record) error {
 	return nil
 }
 
-func main() {
-	app := pocketbase.NewWithConfig(pocketbase.Config{
-		DBConnect: func(dbPath string) (*dbx.DB, error) {
-			db, err := dbx.Open("pb_sqlite3_vec", dbPath)
-			if err != nil {
-				return nil, err
-			}
-
-			_, err = db.NewQuery("SELECT vec_version()").Execute()
-			if err != nil {
-				log.Printf("Warning: vec extension not available: %v", err)
-			} else {
-				log.Printf("sqlite-vec extension loaded successfully!")
-			}
-
-			return db, nil
-		},
-	})
-
-	godotenv.Load()
-	app.Logger().Info(".env file loaded")
-
-	ai.LoadTemplates()
-	app.Logger().Info("AI templates loaded")
-
-	stage := os.Getenv("STAGE")
-
-	distDirFs := os.DirFS("./pb_public")
-	if stage == "prod" {
-		distDirFs, _ = fs.Sub(distDir, "frontend/build")
-	}
-
-	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
-		// enable auto creation of migration files when making collection changes in the Dashboard
-		Automigrate: stage == "dev",
-	})
-
-	var llm ai.Analyzer = openrouter.New()
-	var imgLlm ai.Embedder = clip.New()
-
-	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		// serves static files
-		se.Router.GET("/{path...}", apis.Static(distDirFs, true))
-
-		cr := se.Router.Group("/api/v1")
-		cr.Bind(apis.RequireAuth())
-
-		cr.GET("/similar/{id}", api.HandleGetSimilarMealTemplates)
-		cr.POST("/meal/{id}/link/{targetId}", api.HandlePostMealLink)
-		cr.POST("/meal/{id}/hide", api.HandlePostMealHide)
-
-		return se.Next()
-	})
-
-	app.OnRecordCreateRequest(types.COL_MEAL_TEMPLATES).BindFunc(func(e *core.RecordRequestEvent) error {
-		ri, err := e.RequestInfo()
-		if err != nil {
-			slog.Error("Failed to get request info", "error", err)
-			return errors.New("failed to get request info: " + err.Error())
-		}
-
-		if ri.Auth == nil {
-			slog.Warn("Unauthenticated user tried to create meal template")
-			return errors.New("unauthenticated")
-		}
-
-		slog.Info("Setting meal template user", "userId", ri.Auth.Id, "recordId", e.Record.Id)
-
-		e.Record.Set("user", ri.Auth.Id)
-
-		return e.Next()
-	})
-
-	app.OnRecordAfterCreateSuccess(types.COL_MEAL_TEMPLATES).BindFunc(func(e *core.RecordEvent) error {
-		if err := processMealTemplate(e.App, e.Record, llm, imgLlm); err != nil {
-			return e.Next()
-		}
-
-		if err := createMealHistory(e.App, e.Record); err != nil {
-			slog.Error("Failed to create meal_history", "error", err)
-		}
-
-		return e.Next()
-	})
-
-	app.OnRecordAfterUpdateSuccess(types.COL_MEAL_TEMPLATES).BindFunc(func(e *core.RecordEvent) error {
-		oldStatus := e.Record.Original().GetString("processing_status")
-		newStatus := e.Record.GetString("processing_status")
-
-		if oldStatus != "pending" && newStatus == "pending" {
-			slog.Info("Re-analyzing meal template", "recordId", e.Record.Id)
-			if err := processMealTemplate(e.App, e.Record, llm, imgLlm); err != nil {
-				return e.Next()
-			}
-		}
-
-		return e.Next()
-	})
-
-	app.Logger().Info("Starting app", "stage", stage)
-
-	if err := app.Start(); err != nil {
-		log.Fatal(err)
-	}
-}
