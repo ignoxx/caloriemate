@@ -84,17 +84,17 @@ export function MealHistoryCard({
 
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-start mb-2">
-              <div className="flex items-center gap-2">
-                <h3 className="font-medium text-sm text-foreground truncate pr-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <h3 className="font-medium text-sm text-foreground truncate">
                   {meal.name}
                 </h3>
                 {meal.portionMultiplier && meal.portionMultiplier !== 1 && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs flex-shrink-0">
                     {meal.portionMultiplier}×
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                 {getStatusIcon()}
               </div>
             </div>
