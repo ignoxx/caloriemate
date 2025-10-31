@@ -30,7 +30,7 @@ The easiest way to run this is with Docker Compose.
 ### Prerequisites
 
 - Docker and Docker Compose
-- OpenRouter API key (get one at [openrouter.ai](https://openrouter.ai))
+- OpenRouter API key (recommended) (get one at [openrouter.ai](https://openrouter.ai)), or Ollama for self-hosted AI
 
 ### Quick Start
 
@@ -40,18 +40,26 @@ git clone https://github.com/yourusername/caloriemate.git
 cd caloriemate
 ```
 
-2. Create a `.env` file and add your OpenRouter API key:
+2. Create a `.env` file:
 ```bash
 cp .env.example .env
 ```
 
-Edit the `.env` file:
+For best results, use OpenRouter (recommended for quality and speed):
 ```env
+AI_PROVIDER=openrouter
 OPENROUTER_API_KEY=your_actual_api_key_here
 ```
 
-That's all you need. Optionally, you can also set:
-- `OPENROUTER_VISION_MODEL` - Use a different vision model (default: `google/gemini-2.5-flash`)
+Or use Ollama if you want to keep everything self-hosted:
+```env
+AI_PROVIDER=ollama
+```
+
+Other optional settings:
+- `OLLAMA_HOST` - Ollama server address (default: `http://localhost:11434`)
+- `OLLAMA_VISION_MODEL` - Ollama vision model (default: `qwen3-vl:8b`)
+- `OPENROUTER_VISION_MODEL` - OpenRouter vision model (default: `google/gemini-2.5-flash`)
 - `PORT` - Change the exposed port (default: `8080`)
 
 3. Start it up:
@@ -118,7 +126,7 @@ If you want to hack on this locally without Docker:
 - Go 1.25+
 - Node.js 22+
 - Docker (for CLIP service)
-- OpenRouter API key
+- OpenRouter API key (recommended), or Ollama installed locally
 
 ### Running locally
 
@@ -132,6 +140,7 @@ cd frontend && npm install && cd ..
 ```env
 STAGE=dev
 CLIP_HOST=http://localhost:8001
+AI_PROVIDER=openrouter  # or "ollama" for self-hosted
 OPENROUTER_API_KEY=your_api_key_here
 ```
 
@@ -170,7 +179,7 @@ Just some notes on what I used:
 
 - **Backend**: Go with PocketBase (gives you auth, database, file storage out of the box)
 - **Frontend**: React, TypeScript, Tailwind CSS, shadcn/ui
-- **AI**: OpenRouter API (using Gemini 2.5 Flash for meal analysis), OpenAI CLIP for image embeddings
+- **AI**: OpenRouter (recommended, uses Gemini 2.5 Flash) or Ollama (self-hosted) for meal analysis, OpenAI CLIP for image embeddings
 - **Database**: SQLite with sqlite-vec extension for vector similarity search
 
 ## A note on accuracy
