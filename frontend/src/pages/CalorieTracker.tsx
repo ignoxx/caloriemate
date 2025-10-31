@@ -525,9 +525,9 @@ export default function CalorieTracker() {
         const carbAdjustment = confirmedMeal.totalCarbsG - (template.total_carbs_g * portionMultiplier);
         const fatAdjustment = confirmedMeal.totalFatG - (template.total_fat_g * portionMultiplier);
 
-        // Update meal_history with adjustments and mark as completed
         await pb.collection("meal_history").update(confirmedMeal.id, {
           processingStatus: "completed",
+          portion_multiplier: portionMultiplier,
           calorie_adjustment: calorieAdjustment,
           protein_adjustment: proteinAdjustment,
           carb_adjustment: carbAdjustment,

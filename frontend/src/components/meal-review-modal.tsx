@@ -49,6 +49,9 @@ export function MealReviewModal({
 }: MealReviewModalProps) {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customName, setCustomName] = useState(meal.name);
+  const [portionMultiplier, setPortionMultiplier] = useState(
+    meal.portionMultiplier || 1
+  );
   const [customCalories, setCustomCalories] = useState(
     meal.totalCalories.toString(),
   );
@@ -141,22 +144,44 @@ export function MealReviewModal({
     }
   };
 
+  const getBaseNutrition = () => {
+    const divider = meal.portionMultiplier || 1;
+    return {
+      calories: Math.round(meal.totalCalories / divider),
+      protein: Math.round(meal.totalProteinG / divider),
+      carbs: Math.round(meal.totalCarbsG / divider),
+      fat: Math.round(meal.totalFatG / divider),
+    };
+  };
+
+  const handlePortionChange = (value: string) => {
+    const multiplier = parseFloat(value) || 1;
+    setPortionMultiplier(multiplier);
+    
+    const base = getBaseNutrition();
+    setCustomCalories(Math.round(base.calories * multiplier).toString());
+    setCustomProtein(Math.round(base.protein * multiplier).toString());
+    setCustomCarbs(Math.round(base.carbs * multiplier).toString());
+    setCustomFat(Math.round(base.fat * multiplier).toString());
+  };
+
   const handleConfirmMeal = () => {
     if (!onMealConfirmed) return;
 
     const confirmedMeal: MealEntry = {
       ...meal,
       name: showCustomForm ? customName : meal.name,
+      portionMultiplier: portionMultiplier,
       totalCalories: showCustomForm
         ? parseInt(customCalories)
-        : meal.totalCalories,
+        : Math.round(meal.totalCalories * portionMultiplier),
       totalProteinG: showCustomForm
         ? parseInt(customProtein)
-        : meal.totalProteinG,
+        : Math.round(meal.totalProteinG * portionMultiplier),
       totalCarbsG: showCustomForm
         ? parseInt(customCarbs)
-        : meal.totalCarbsG,
-      totalFatG: showCustomForm ? parseInt(customFat) : meal.totalFatG,
+        : Math.round(meal.totalCarbsG * portionMultiplier),
+      totalFatG: showCustomForm ? parseInt(customFat) : Math.round(meal.totalFatG * portionMultiplier),
       aiDescription: description,
       processingStatus: MealTemplatesProcessingStatusOptions.completed,
     };
@@ -203,11 +228,8 @@ export function MealReviewModal({
 
     setIsUpdating(true);
     try {
-      // Get the template values (base values before any adjustments)
       const template = await pb.collection('meal_templates').getOne(meal.mealTemplateId);
-      const portionMultiplier = meal.portionMultiplier || 1;
 
-      // Calculate adjustments as deltas from template values
       const calorieAdjustment = showCustomForm
         ? parseInt(customCalories) - (template.total_calories * portionMultiplier)
         : (meal.calorieAdjustment || 0);
@@ -221,15 +243,14 @@ export function MealReviewModal({
         ? parseInt(customFat) - (template.total_fat_g * portionMultiplier)
         : (meal.fatAdjustment || 0);
 
-      // Update meal_history with adjustments
       await pb.collection(Collections.MealHistory).update(meal.mealHistoryId, {
+        portion_multiplier: portionMultiplier,
         calorie_adjustment: calorieAdjustment,
         protein_adjustment: proteinAdjustment,
         carb_adjustment: carbAdjustment,
         fat_adjustment: fatAdjustment,
       });
 
-      // If name or description changed, update the template
       if (showCustomForm && (customName !== meal.name || description !== meal.aiDescription)) {
         await pb.collection('meal_templates').update(meal.mealTemplateId, {
           name: customName,
@@ -237,14 +258,14 @@ export function MealReviewModal({
         });
       }
 
-      // Create updated meal object for the callback
       const updatedMeal: MealEntry = {
         ...meal,
         name: showCustomForm ? customName : meal.name,
-        totalCalories: showCustomForm ? parseInt(customCalories) : meal.totalCalories,
-        totalProteinG: showCustomForm ? parseInt(customProtein) : meal.totalProteinG,
-        totalCarbsG: showCustomForm ? parseInt(customCarbs) : meal.totalCarbsG,
-        totalFatG: showCustomForm ? parseInt(customFat) : meal.totalFatG,
+        portionMultiplier: portionMultiplier,
+        totalCalories: showCustomForm ? parseInt(customCalories) : Math.round(template.total_calories * portionMultiplier + calorieAdjustment),
+        totalProteinG: showCustomForm ? parseInt(customProtein) : Math.round(template.total_protein_g * portionMultiplier + proteinAdjustment),
+        totalCarbsG: showCustomForm ? parseInt(customCarbs) : Math.round(template.total_carbs_g * portionMultiplier + carbAdjustment),
+        totalFatG: showCustomForm ? parseInt(customFat) : Math.round(template.total_fat_g * portionMultiplier + fatAdjustment),
         aiDescription: description,
         calorieAdjustment,
         proteinAdjustment,
@@ -256,7 +277,6 @@ export function MealReviewModal({
       onClose();
     } catch (error) {
       console.error('Failed to update meal:', error);
-      // TODO: Show error toast
     } finally {
       setIsUpdating(false);
     }
@@ -302,9 +322,30 @@ export function MealReviewModal({
 
           {/* AI Analysis Results */}
           <div className="space-y-3">
-            <h3 className="font-medium text-foreground">
-              AI Analysis:
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-foreground">
+                AI Analysis:
+              </h3>
+              {mode === 'review' && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="portion" className="text-xs text-muted-foreground">
+                    Portion:
+                  </Label>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="portion"
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={portionMultiplier}
+                      onChange={(e) => handlePortionChange(e.target.value)}
+                      className="w-16 h-8 text-sm text-center"
+                    />
+                    <span className="text-xs text-muted-foreground">×</span>
+                  </div>
+                </div>
+              )}
+            </div>
             <Card className="bg-accent/30">
               <CardContent className="p-3">
                 <h4 className="font-medium text-sm dark:text-white mb-2">
@@ -315,7 +356,7 @@ export function MealReviewModal({
                     <span className="text-muted-foreground">Calories:</span>
                     <span className="ml-1 font-medium">
                       {formatNutritionWithUncertainty(
-                        meal.totalCalories,
+                        showCustomForm ? parseInt(customCalories) : Math.round(meal.totalCalories * portionMultiplier),
                         meal.calorieUncertaintyPercent,
                         "",
                       )}
@@ -325,7 +366,7 @@ export function MealReviewModal({
                     <span className="text-muted-foreground">Protein:</span>
                     <span className="ml-1 font-medium">
                       {formatNutritionWithUncertainty(
-                        meal.totalProteinG,
+                        showCustomForm ? parseInt(customProtein) : Math.round(meal.totalProteinG * portionMultiplier),
                         meal.proteinUncertaintyPercent,
                         "g",
                       )}
@@ -335,7 +376,7 @@ export function MealReviewModal({
                     <span className="text-muted-foreground">Carbs:</span>
                     <span className="ml-1 font-medium">
                       {formatNutritionWithUncertainty(
-                        meal.totalCarbsG,
+                        showCustomForm ? parseInt(customCarbs) : Math.round(meal.totalCarbsG * portionMultiplier),
                         meal.carbsUncertaintyPercent,
                         "g",
                       )}
@@ -345,7 +386,7 @@ export function MealReviewModal({
                     <span className="text-muted-foreground">Fat:</span>
                     <span className="ml-1 font-medium">
                       {formatNutritionWithUncertainty(
-                        meal.totalFatG,
+                        showCustomForm ? parseInt(customFat) : Math.round(meal.totalFatG * portionMultiplier),
                         meal.fatUncertaintyPercent,
                         "g",
                       )}
@@ -448,28 +489,56 @@ export function MealReviewModal({
           )}
 
           {/* Edit Option */}
-          <Card
-            className={`cursor-pointer transition-colors ${
-              showCustomForm
-                ? "ring-2 ring-primary bg-primary/10"
-                : "hover:bg-accent/50"
-            }`}
-            onClick={() => setShowCustomForm(!showCustomForm)}
-          >
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <Plus className="h-4 w-4 text-primary" />
-                <span className="font-medium text-sm dark:text-white">
-                  {showCustomForm ? "Use AI analysis" : "Edit meal details"}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {showCustomForm
-                  ? "Accept the AI analysis as is"
-                  : "Modify the meal name and nutrition values"}
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-2">
+            {mode === 'view' && (
+              <Card className="bg-accent/30">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="portion-view" className="text-sm font-medium">
+                      Portion Size:
+                    </Label>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        id="portion-view"
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={portionMultiplier}
+                        onChange={(e) => handlePortionChange(e.target.value)}
+                        className="w-20 h-8 text-sm text-center"
+                      />
+                      <span className="text-xs text-muted-foreground">×</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Adjust portion size (e.g., 0.5 for half, 2.0 for double)
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            <Card
+              className={`cursor-pointer transition-colors ${
+                showCustomForm
+                  ? "ring-2 ring-primary bg-primary/10"
+                  : "hover:bg-accent/50"
+              }`}
+              onClick={() => setShowCustomForm(!showCustomForm)}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2">
+                  <Plus className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm dark:text-white">
+                    {showCustomForm ? "Use AI analysis" : "Edit meal details"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {showCustomForm
+                    ? "Accept the AI analysis as is"
+                    : "Modify the meal name and nutrition values"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Custom Meal Form */}
           {showCustomForm && (
