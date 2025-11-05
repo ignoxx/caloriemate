@@ -103,4 +103,10 @@
   input[type="number"] {
     -moz-appearance: textfield;
   }
+
+  /* Fix mobile touch responsiveness */
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
