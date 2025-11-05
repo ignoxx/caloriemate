@@ -18,7 +18,7 @@ import {
   CollapsibleTrigger,
 } from "./ui/collapsible";
 
-import { X, CheckCircle, Plus, Repeat, Trash2, Link as LinkIcon, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { X, CheckCircle, Plus, Repeat, Trash2, Link as LinkIcon, Loader2, ChevronDown, ChevronUp, Minus } from "lucide-react";
 import { MealEntry, SimilarMeal } from "../types/meal";
 import { Collections, MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 import { fetchSimilarMeals } from "../lib/pocketbase";
@@ -328,20 +328,40 @@ export function MealReviewModal({
               </h3>
               {mode === 'review' && (
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="portion" className="text-xs text-muted-foreground">
+                  <Label htmlFor="portion" className="text-xs text-muted-foreground shrink-0">
                     Portion:
                   </Label>
                   <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 p-0 shrink-0"
+                      onClick={() => handlePortionChange(Math.max(0.1, portionMultiplier - 0.5).toString())}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
                     <Input
                       id="portion"
                       type="number"
+                      inputMode="decimal"
                       min="0.1"
                       step="0.1"
                       value={portionMultiplier}
                       onChange={(e) => handlePortionChange(e.target.value)}
-                      className="w-16 h-8 text-sm text-center"
+                      className="w-20 h-9 text-center"
+                      style={{ fontSize: '16px' }}
                     />
-                    <span className="text-xs text-muted-foreground">×</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 p-0 shrink-0"
+                      onClick={() => handlePortionChange((portionMultiplier + 0.5).toString())}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground shrink-0">×</span>
                   </div>
                 </div>
               )}
@@ -493,26 +513,48 @@ export function MealReviewModal({
             {mode === 'view' && (
               <Card className="bg-accent/30">
                 <CardContent className="p-3">
-                  <div className="flex items-center justify-between">
+                  <div className="space-y-3">
                     <Label htmlFor="portion-view" className="text-sm font-medium">
                       Portion Size:
                     </Label>
-                    <div className="flex items-center gap-1">
-                      <Input
-                        id="portion-view"
-                        type="number"
-                        min="0.1"
-                        step="0.1"
-                        value={portionMultiplier}
-                        onChange={(e) => handlePortionChange(e.target.value)}
-                        className="w-20 h-8 text-sm text-center"
-                      />
-                      <span className="text-xs text-muted-foreground">×</span>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        className="h-12 w-12 p-0"
+                        onClick={() => handlePortionChange(Math.max(0.1, portionMultiplier - 0.5).toString())}
+                      >
+                        <Minus className="h-5 w-5" />
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          id="portion-view"
+                          type="number"
+                          inputMode="decimal"
+                          min="0.1"
+                          step="0.1"
+                          value={portionMultiplier}
+                          onChange={(e) => handlePortionChange(e.target.value)}
+                          className="w-24 h-12 text-center font-medium"
+                          style={{ fontSize: '16px' }}
+                        />
+                        <span className="text-sm text-muted-foreground">×</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        className="h-12 w-12 p-0"
+                        onClick={() => handlePortionChange((portionMultiplier + 0.5).toString())}
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Adjust portion size (e.g., 0.5 for half, 2.0 for double)
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Adjust portion size (e.g., 0.5 for half, 2.0 for double)
-                  </p>
                 </CardContent>
               </Card>
             )}
