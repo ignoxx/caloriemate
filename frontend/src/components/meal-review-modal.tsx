@@ -67,6 +67,7 @@ export function MealReviewModal({
   const [isLinking, setIsLinking] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [initialPortionMultiplier] = useState(meal.portionMultiplier || 1);
 
   const getFullImageUrl = () => {
     if (!meal.imageUrl) return "/placeholder.svg";
@@ -703,6 +704,29 @@ export function MealReviewModal({
               </Button>
             </div>
           ) : showCustomForm ? (
+            <div className="flex gap-2">
+              <DrawerClose asChild>
+                <Button variant="outline" className="w-full" size="lg">
+                  Cancel
+                </Button>
+              </DrawerClose>
+              <Button
+                onClick={handleUpdateMeal}
+                className="w-full"
+                size="lg"
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </div>
+          ) : portionMultiplier !== initialPortionMultiplier ? (
             <div className="flex gap-2">
               <DrawerClose asChild>
                 <Button variant="outline" className="w-full" size="lg">
