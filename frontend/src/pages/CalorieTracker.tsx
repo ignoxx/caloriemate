@@ -55,6 +55,7 @@ export default function CalorieTracker() {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [mealDescription, setMealDescription] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [reanalyzingMealId, setReanalyzingMealId] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
@@ -390,7 +391,12 @@ export default function CalorieTracker() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+      const newUrl = URL.createObjectURL(file);
       setSelectedImage(file);
+      setImagePreviewUrl(newUrl);
     }
   };
 
@@ -400,7 +406,7 @@ export default function CalorieTracker() {
     setIsSubmittingMeal(true);
 
     const tempId = `temp_${Date.now()}`;
-    const imageUrl = URL.createObjectURL(selectedImage);
+    const imageUrl = imagePreviewUrl || "";
 
     try {
       if (reanalyzingMealId) {
@@ -427,9 +433,10 @@ export default function CalorieTracker() {
         setSelectedImage(null);
         setMealDescription("");
         setReanalyzingMealId(null);
-
-        // Clean up the temporary URL
-        URL.revokeObjectURL(imageUrl);
+        if (imagePreviewUrl) {
+          URL.revokeObjectURL(imagePreviewUrl);
+          setImagePreviewUrl(null);
+        }
 
         // Load fresh meal history to get any updates
         await loadMealHistory();
@@ -482,9 +489,10 @@ export default function CalorieTracker() {
 
         setSelectedImage(null);
         setMealDescription("");
-
-        // Clean up the temporary URL
-        URL.revokeObjectURL(imageUrl);
+        if (imagePreviewUrl) {
+          URL.revokeObjectURL(imagePreviewUrl);
+          setImagePreviewUrl(null);
+        }
 
         // Load fresh meal history to get any updates
         await loadMealHistory();
@@ -497,8 +505,10 @@ export default function CalorieTracker() {
         setMealHistory((prev) => prev.filter((meal) => meal.id !== tempId));
       }
 
-      // Clean up the temporary URL
-      URL.revokeObjectURL(imageUrl);
+      // Clean up on error
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
     } finally {
       setIsSubmittingMeal(false);
     }
@@ -586,7 +596,7 @@ export default function CalorieTracker() {
       }
 
       const template = await pb.collection(Collections.MealTemplates).getOne(meal.mealTemplateId);
-      
+
       if (!template.image) {
         console.error("Cannot re-analyze meal without image");
         return;
@@ -599,16 +609,23 @@ export default function CalorieTracker() {
 
       const response = await fetch(imageUrl);
       const blob = await response.blob();
-      
+
       const file = new File([blob], template.image, { type: blob.type });
-      
+
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+
+      const newUrl = URL.createObjectURL(file);
+
       setSelectedImage(file);
+      setImagePreviewUrl(newUrl);
       setMealDescription(meal.userContext || template.description || '');
       setReanalyzingMealId(meal.mealTemplateId);
-      
+
       setShowMealReview(false);
       setSelectedMeal(null);
-      
+
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 100);
@@ -690,6 +707,14 @@ export default function CalorieTracker() {
       loadMealHistory();
     }
   }, [user, loadMealHistory, loadUserProfile]);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
 
   if (isLoadingProfile) {
     return (
@@ -871,11 +896,15 @@ export default function CalorieTracker() {
               <div className="mb-4 flex items-center gap-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 px-3 py-2 rounded-md text-sm border border-blue-200 dark:border-blue-800">
                 <Repeat className="h-4 w-4" />
                 <span className="font-medium">Re-analyzing meal</span>
-                <button
+                 <button
                   onClick={() => {
                     setReanalyzingMealId(null);
                     setSelectedImage(null);
                     setMealDescription("");
+                    if (imagePreviewUrl) {
+                      URL.revokeObjectURL(imagePreviewUrl);
+                      setImagePreviewUrl(null);
+                    }
                   }}
                   className="ml-auto text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100"
                 >
@@ -892,8 +921,8 @@ export default function CalorieTracker() {
                   {reanalyzingMealId ? "Re-analyze Meal" : "Add New Meal"}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  {reanalyzingMealId 
-                    ? "Update details and re-submit for analysis" 
+                  {reanalyzingMealId
+                    ? "Update details and re-submit for analysis"
                     : "Snap and analyze instantly"}
                 </p>
               </div>
@@ -913,11 +942,11 @@ export default function CalorieTracker() {
 
           <CardContent className="pt-4 space-y-4">
             {/* Show selected image preview */}
-            {selectedImage && (
+            {selectedImage && imagePreviewUrl && (
               <div className="relative">
                 <div className="w-full h-40 rounded-lg overflow-hidden bg-muted border-2 border-dashed border-primary/30">
                   <img
-                    src={URL.createObjectURL(selectedImage)}
+                    src={imagePreviewUrl}
                     alt="Selected meal"
                     className="w-full h-full object-cover"
                   />
