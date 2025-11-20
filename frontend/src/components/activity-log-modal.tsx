@@ -52,69 +52,82 @@ export function ActivityLogModal({ open, onClose, onSubmit, userWeightKg }: Acti
 
   return (
     <Drawer open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle className="flex items-center gap-2">
-            <Footprints className="h-5 w-5 text-green-600" />
-            Log Walking Activity
-          </DrawerTitle>
-        </DrawerHeader>
+      <DrawerContent className="!fixed !bottom-0 !max-h-[min(500px,90vh)]">
+        <div className="flex flex-col h-full">
+          <DrawerHeader className="flex-shrink-0">
+            <DrawerTitle className="flex items-center gap-2">
+              <Footprints className="h-5 w-5 text-green-600" />
+              Log Walking Activity
+            </DrawerTitle>
+          </DrawerHeader>
 
-        <div className="px-4 pb-4 space-y-4">
-          <div className="flex gap-2">
-            <Button
-              variant={inputMode === "steps" ? "default" : "outline"}
-              onClick={() => setInputMode("steps")}
-              className="flex-1"
-            >
-              Steps
-            </Button>
-            <Button
-              variant={inputMode === "duration" ? "default" : "outline"}
-              onClick={() => setInputMode("duration")}
-              className="flex-1"
-            >
-              Duration
-            </Button>
+          <div className="px-4 pb-4 space-y-4 overflow-y-auto flex-1 overscroll-contain touch-pan-y" style={{WebkitOverflowScrolling: 'touch'}}>
+            <div className="flex gap-2">
+              <Button
+                variant={inputMode === "steps" ? "default" : "outline"}
+                onClick={() => setInputMode("steps")}
+                className="flex-1"
+              >
+                Steps
+              </Button>
+              <Button
+                variant={inputMode === "duration" ? "default" : "outline"}
+                onClick={() => setInputMode("duration")}
+                className="flex-1"
+              >
+                Duration
+              </Button>
+            </div>
+
+            {inputMode === "steps" ? (
+              <div className="space-y-2">
+                <Label htmlFor="steps">Steps</Label>
+                <Input
+                  id="steps"
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="e.g., 5000"
+                  value={steps}
+                  onChange={(e) => setSteps(e.target.value)}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duration (minutes)</Label>
+                <Input
+                  id="duration"
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="e.g., 30"
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="rounded-lg p-3 text-center transition-all duration-200 min-h-[88px] flex flex-col justify-center">
+              {canSubmit ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 -m-3">
+                  <p className="text-sm text-green-700">Estimated calories burned</p>
+                  <p className="text-2xl font-bold text-green-800">{estimatedCalories()} kcal</p>
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 -m-3">
+                  <p className="text-sm text-gray-600">💡 Quick tip</p>
+                  <p className="text-base text-gray-700">~2000 steps ≈ 1km walked</p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {inputMode === "steps" ? (
-            <div className="space-y-2">
-              <Label htmlFor="steps">Steps</Label>
-              <Input
-                id="steps"
-                type="number"
-                placeholder="e.g., 5000"
-                value={steps}
-                onChange={(e) => setSteps(e.target.value)}
-              />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Label htmlFor="duration">Duration (minutes)</Label>
-              <Input
-                id="duration"
-                type="number"
-                placeholder="e.g., 30"
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(e.target.value)}
-              />
-            </div>
-          )}
-
-          {canSubmit && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-              <p className="text-sm text-green-700">Estimated calories burned</p>
-              <p className="text-2xl font-bold text-green-800">{estimatedCalories()} kcal</p>
-            </div>
-          )}
+          <DrawerFooter className="flex-shrink-0 border-t bg-background">
+            <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full">
+              Log Activity
+            </Button>
+          </DrawerFooter>
         </div>
-
-        <DrawerFooter>
-          <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full">
-            Log Activity
-          </Button>
-        </DrawerFooter>
       </DrawerContent>
     </Drawer>
   );
