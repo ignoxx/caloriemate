@@ -951,9 +951,25 @@ export default function CalorieTracker() {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-xs font-medium px-2 py-1 rounded-full shadow-lg">
-                  ✓ Ready
-                </div>
+                <button
+                  className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-all hover:scale-105 border border-white/20"
+                  onClick={() => {
+                    setSelectedImage(null);
+                    setMealDescription("");
+                    setReanalyzingMealId(null);
+                    if (imagePreviewUrl) {
+                      URL.revokeObjectURL(imagePreviewUrl);
+                      setImagePreviewUrl(null);
+                    }
+                    // Reset file input
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = "";
+                    }
+                  }}
+                  title="Remove image and select another"
+                >
+                  <X className="h-4 w-4 text-white" />
+                </button>
               </div>
             )}
 
