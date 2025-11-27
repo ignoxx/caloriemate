@@ -36,7 +36,7 @@ The easiest way to run this is with Docker Compose.
 
 1. Clone the repo:
 ```bash
-git clone https://github.com/yourusername/caloriemate.git
+git clone https://github.com/ignoxx/caloriemate.git
 cd caloriemate
 ```
 
