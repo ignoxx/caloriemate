@@ -64,7 +64,7 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
 		Model: c.visionModel,
 		Reasoning: &openrouter.ChatCompletionReasoning{
-			Effort: utils.ToPtr("low"),
+			Effort: new("low"),
 		},
 		Messages: []openrouter.ChatCompletionMessage{
 			{

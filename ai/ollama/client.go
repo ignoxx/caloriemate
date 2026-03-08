@@ -77,7 +77,7 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 
 	req := api.ChatRequest{
 		Model:  c.visionModel,
-		Stream: utils.ToPtr(false),
+		Stream: new(false),
 		Messages: []api.Message{
 			{
 				Role:    "user",

@@ -7,10 +7,6 @@ import (
 	"github.com/ignoxx/caloriemate/types"
 )
 
-func ToPtr[T any](v T) *T {
-	return &v
-}
-
 func ValidateJSON(s string) (types.MealTemplate, error) {
 	s, _ = strings.CutPrefix(s, "```json")
 	s, _ = strings.CutPrefix(s, "```")
