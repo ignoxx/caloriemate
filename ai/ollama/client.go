@@ -3,6 +3,7 @@ package ollama
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -75,8 +76,10 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 		return errors.New("no content in response message")
 	}
 
+	jsonFormat := json.RawMessage(`"json"`)
 	req := api.ChatRequest{
 		Model:  c.visionModel,
+		Format: jsonFormat,
 		Stream: new(false),
 		Messages: []api.Message{
 			{

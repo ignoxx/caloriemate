@@ -47,10 +47,12 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	var promptBuf bytes.Buffer
 
 	enc := base64.NewEncoder(base64.StdEncoding, &imgBuf)
-	defer enc.Close()
 
 	if _, err := io.Copy(enc, image); err != nil {
 		return types.MealTemplate{}, errors.New("image copy to buffer failed with: " + err.Error())
+	}
+	if err := enc.Close(); err != nil {
+		return types.MealTemplate{}, errors.New("image base64 encode failed with: " + err.Error())
 	}
 
 	type input struct {
@@ -62,9 +64,13 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 	}
 
 	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
-		Model: c.visionModel,
+		Model:       c.visionModel,
+		Temperature: 0.1,
 		Reasoning: &openrouter.ChatCompletionReasoning{
 			Effort: new("low"),
+		},
+		ResponseFormat: &openrouter.ChatCompletionResponseFormat{
+			Type: openrouter.ChatCompletionResponseFormatTypeJSONObject,
 		},
 		Messages: []openrouter.ChatCompletionMessage{
 			{
