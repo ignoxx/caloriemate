@@ -1,0 +1,33 @@
+.git
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+
+# local deps/build outputs
+node_modules
+frontend/node_modules
+frontend/build
+frontend/dist
+dist
+build
+
+# Go build/cache/test output
+main
+*.test
+coverage.out
+
+# PocketBase/runtime data
+pb_data
+pb_migrations/.snapshot
+
+# env/secrets/local files
+.env
+.env.*
+!.env.example
+
+# logs/temp
+*.log
+.DS_Store
+.cache
+tmp
