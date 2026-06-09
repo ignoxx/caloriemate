@@ -23,7 +23,6 @@ import {
 import { Progress } from "../components/ui/progress";
 import { Badge } from "../components/ui/badge";
 import { Textarea } from "../components/ui/textarea";
-import { Label } from "../components/ui/label";
 import { OnboardingModal } from "../components/onboarding-modal";
 import { MealReviewModal } from "../components/meal-review-modal";
 import { MealHistoryCard } from "../components/meal-history-card";
@@ -53,11 +52,11 @@ export default function CalorieTracker() {
   const [mealHistory, setMealHistory] = useState<MealEntry[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [showActivityModal, setShowActivityModal] = useState(false);
-  const [mealDescription, setMealDescription] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageContext, setImageContext] = useState("");
   const [contextImages, setContextImages] = useState<Array<{ id: string; file: File; previewUrl: string; note: string }>>([]);
+  const [activeImageCard, setActiveImageCard] = useState(0);
   const [reanalyzingMealId, setReanalyzingMealId] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
@@ -69,6 +68,7 @@ export default function CalorieTracker() {
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contextFileInputRef = useRef<HTMLInputElement>(null);
+  const imageCarouselRef = useRef<HTMLDivElement>(null);
   const hasLoadedMealsRef = useRef(false);
   const hasLoadedProfileRef = useRef(false);
   const { user } = useAuth();
@@ -415,6 +415,7 @@ export default function CalorieTracker() {
     const files = Array.from(event.target.files ?? []).slice(0, Math.max(0, 5 - contextImages.length));
     if (files.length === 0) return;
 
+    const firstNewIndex = contextImages.length + 1;
     setContextImages((prev) => [
       ...prev,
       ...files.map((file) => ({
@@ -425,6 +426,7 @@ export default function CalorieTracker() {
       })),
     ]);
     event.target.value = "";
+    scrollImageCardIntoView(firstNewIndex);
   };
 
   const updateContextNote = (id: string, note: string) => {
@@ -438,6 +440,41 @@ export default function CalorieTracker() {
       return prev.filter((item) => item.id !== id);
     });
   };
+
+  const scrollImageCardIntoView = (index: number) => {
+    requestAnimationFrame(() => {
+      imageCarouselRef.current
+        ?.querySelector<HTMLElement>(`[data-image-card="${index}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    });
+  };
+
+  const handleImageCarouselScroll = () => {
+    const carousel = imageCarouselRef.current;
+    if (!carousel) return;
+
+    const carouselCenter = carousel.scrollLeft + carousel.clientWidth / 2;
+    let closestIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    carousel.querySelectorAll<HTMLElement>("[data-image-card]").forEach((card) => {
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+      const distance = Math.abs(carouselCenter - cardCenter);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = Number(card.dataset.imageCard ?? 0);
+      }
+    });
+
+    setActiveImageCard(closestIndex);
+  };
+
+  const imageCardClass = (index: number, base: string) =>
+    `${base} transition-all duration-300 ease-out ${
+      activeImageCard === index
+        ? "opacity-100 scale-100 blur-0 shadow-lg"
+        : "opacity-45 scale-95 blur-[1px]"
+    }`;
 
   const handleMealSubmission = async () => {
     if (!selectedImage || isSubmittingMeal) return;
@@ -453,7 +490,7 @@ export default function CalorieTracker() {
         const formData = new FormData();
         formData.append("image", selectedImage);
         formData.append("image_context", imageContext || "");
-        formData.append("description", mealDescription || "");
+        formData.append("description", "");
         formData.append("processing_status", "pending");
         contextImages.forEach((image) => formData.append("context_images", image.file));
         formData.append("context_notes", JSON.stringify(contextImages.map((image) => ({ filename: image.file.name, note: image.note }))));
@@ -467,14 +504,13 @@ export default function CalorieTracker() {
               ? {
                   ...meal,
                   processingStatus: MealTemplatesProcessingStatusOptions.processing,
-                  userContext: mealDescription || "",
+                  userContext: imageContext || "",
                 }
               : meal,
           ),
         );
 
         clearSelectedImages();
-        setMealDescription("");
         setReanalyzingMealId(null);
 
         // Load fresh meal history to get any updates
@@ -485,8 +521,8 @@ export default function CalorieTracker() {
           id: tempId,
           mealHistoryId: tempId,
           mealTemplateId: "",
-          name: mealDescription || "Analyzing meal...",
-          userContext: mealDescription || "",
+          name: imageContext || "Analyzing meal...",
+          userContext: imageContext || "",
           aiDescription: "Analysis in progress...",
           totalCalories: 0,
           calorieUncertaintyPercent: 0,
@@ -509,7 +545,7 @@ export default function CalorieTracker() {
         formData.append("image", selectedImage);
         formData.append("image_context", imageContext || "");
         formData.append("processing_status", "pending");
-        formData.append("description", mealDescription || "");
+        formData.append("description", "");
         contextImages.forEach((image) => formData.append("context_images", image.file));
         formData.append("context_notes", JSON.stringify(contextImages.map((image) => ({ filename: image.file.name, note: image.note }))));
 
@@ -531,7 +567,6 @@ export default function CalorieTracker() {
         );
 
         clearSelectedImages();
-        setMealDescription("");
 
         // Load fresh meal history to get any updates
         await loadMealHistory();
@@ -653,8 +688,7 @@ export default function CalorieTracker() {
 
       setSelectedImage(file);
       setImagePreviewUrl(newUrl);
-      setImageContext((template as any).image_context || '');
-      setMealDescription(meal.userContext || template.description || '');
+      setImageContext((template as any).image_context || meal.userContext || template.description || '');
       setReanalyzingMealId(meal.mealTemplateId);
 
       setShowMealReview(false);
@@ -750,6 +784,12 @@ export default function CalorieTracker() {
     };
   }, [imagePreviewUrl]);
 
+  useEffect(() => {
+    if (!selectedImage || !imagePreviewUrl) return;
+    setActiveImageCard(0);
+    scrollImageCardIntoView(0);
+  }, [imagePreviewUrl, selectedImage]);
+
   if (isLoadingProfile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -805,64 +845,67 @@ export default function CalorieTracker() {
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <div className="bg-card shadow-sm border-b border-border">
-        <div className="max-w-md mx-auto px-4 py-6">
+        <div className="max-w-md mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">
+              <h1 className="text-xl font-bold leading-tight text-foreground">
                 CalorieMate
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Your personal nutrition assistant
+              <p className="text-xs text-muted-foreground">
+                Nutrition assistant
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8"
                 onClick={() => setShowMealLibrary(true)}
                 title="My Meals"
               >
-                <History className="h-5 w-5" />
+                <History className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8"
                 onClick={() => setShowWeeklyHistory(true)}
                 title="Weekly History"
               >
-                <Calendar className="h-5 w-5" />
+                <Calendar className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8"
                 onClick={() => setShowProfile(true)}
                 title="Profile"
               >
-                <User className="h-5 w-5" />
+                <User className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-md mx-auto px-4 py-4 space-y-4">
         {/* Daily Progress */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
+          <CardHeader className="py-3 pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" />
               Today's Progress
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 pb-3">
             {/* Calories */}
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-foreground">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-xs font-medium text-foreground">
                   Calories
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold">
+                  <span className="text-xs font-bold">
                     {netCalories} / {userGoals.target_calories}
                   </span>
                   {isCalorieGoalMet && (
@@ -874,7 +917,7 @@ export default function CalorieTracker() {
               </div>
               <Progress
                 value={Math.min(calorieProgress, 100)}
-                className="h-2"
+                className="h-1.5"
               />
               {todayCaloriesBurned > 0 && (
                 <div className="flex justify-between items-center mt-1 text-xs text-muted-foreground">
@@ -886,12 +929,12 @@ export default function CalorieTracker() {
 
             {/* Protein */}
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-foreground">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-xs font-medium text-foreground">
                   Protein
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold">
+                  <span className="text-xs font-bold">
                     {todayProtein}g / {userGoals?.target_protein_g}g
                   </span>
                   {isProteinGoalMet && (
@@ -903,17 +946,17 @@ export default function CalorieTracker() {
               </div>
               <Progress
                 value={Math.min(proteinProgress, 100)}
-                className="h-2"
+                className="h-1.5"
               />
             </div>
 
             {/* Log Activity Button */}
-            <div className="pt-3 mt-1">
+            <div className="pt-1">
               <button
                 onClick={() => setShowActivityModal(true)}
-                className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-2 border border-border rounded-md hover:border-green-500 dark:hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
+                className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-border rounded-md hover:border-green-500 dark:hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
               >
-                <Footprints className="h-4 w-4" />
+                <Footprints className="h-3.5 w-3.5" />
                 <span>Log walking activity</span>
               </button>
             </div>
@@ -924,8 +967,8 @@ export default function CalorieTracker() {
         {/* <WeeklyActivity mealHistory={mealHistory} userGoals={userGoals} />*/}
 
         {/* Add Meal Button */}
-        <Card className="overflow-hidden border-2">
-          <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 pb-4">
+        <Card className="border-2 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent">
+          <div className={selectedImage ? "p-4 pb-1" : "p-6 pb-4"}>
             {reanalyzingMealId && (
               <div className="mb-4 flex items-center gap-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 px-3 py-2 rounded-md text-sm border border-blue-200 dark:border-blue-800">
                 <Repeat className="h-4 w-4" />
@@ -934,7 +977,6 @@ export default function CalorieTracker() {
                   onClick={() => {
                     setReanalyzingMealId(null);
                     clearSelectedImages();
-                    setMealDescription("");
                   }}
                   className="ml-auto text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100"
                 >
@@ -942,15 +984,15 @@ export default function CalorieTracker() {
                 </button>
               </div>
             )}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                <Camera className="h-5 w-5 text-primary" />
+            <div className={selectedImage ? "flex items-center gap-2 mb-2" : "flex items-center gap-3 mb-4"}>
+              <div className={selectedImage ? "w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center" : "w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center"}>
+                <Camera className={selectedImage ? "h-4 w-4 text-primary" : "h-5 w-5 text-primary"} />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground">
+                <h3 className={selectedImage ? "text-base font-semibold text-foreground leading-tight" : "font-semibold text-foreground"}>
                   {reanalyzingMealId ? "Re-analyze Meal" : "Add New Meal"}
                 </h3>
-                <p className="text-xs text-muted-foreground">
+                <p className={selectedImage ? "text-[11px] text-muted-foreground leading-tight" : "text-xs text-muted-foreground"}>
                   {reanalyzingMealId
                     ? "Update details and re-submit for analysis"
                     : "Snap and analyze instantly"}
@@ -970,20 +1012,31 @@ export default function CalorieTracker() {
             )}
           </div>
 
-          <CardContent className="pt-4 space-y-4">
+          <CardContent className="pt-2 space-y-3">
             {/* Image rail */}
             {selectedImage && imagePreviewUrl && (
-              <div className="space-y-3">
-                <div className="flex gap-3 overflow-x-auto pb-2 snap-x">
-                  <div className="min-w-[220px] snap-start rounded-xl border-2 border-primary bg-primary/5 p-2 shadow-sm">
-                    <div className="relative h-36 rounded-lg overflow-hidden bg-muted">
+              <div className="relative space-y-3 overflow-visible">
+                <div
+                  ref={imageCarouselRef}
+                  onScroll={handleImageCarouselScroll}
+                  className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-3 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]"
+                >
+                  <div
+                    className="shrink-0"
+                    aria-hidden="true"
+                    style={{ width: "max(0px, calc((100% - 300px) / 2))" }}
+                  />
+                  <div
+                    data-image-card={0}
+                    className={imageCardClass(0, "w-[300px] shrink-0 snap-center rounded-xl border-2 border-primary bg-primary/5 p-3")}
+                  >
+                    <div className="relative h-48 rounded-lg overflow-hidden bg-muted">
                       <img src={imagePreviewUrl} alt="Primary meal" className="w-full h-full object-cover" />
                       <Badge className="absolute left-2 top-2">Meal photo</Badge>
                       <button
                         className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-all hover:scale-105 border border-white/20"
                         onClick={() => {
                           clearSelectedImages();
-                          setMealDescription("");
                           setReanalyzingMealId(null);
                           if (fileInputRef.current) fileInputRef.current.value = "";
                         }}
@@ -994,17 +1047,21 @@ export default function CalorieTracker() {
                     </div>
                     <p className="mt-2 text-xs font-medium text-primary">Primary image · used for matching</p>
                     <Textarea
-                      placeholder="Optional note for meal photo, e.g. half eaten, 2 servings shown..."
+                      placeholder="Optional note: half eaten, 2 servings shown, ate only burger no fries..."
                       value={imageContext}
                       onChange={(e) => setImageContext(e.target.value)}
-                      rows={2}
-                      className="mt-2 resize-none text-xs"
+                      rows={5}
+                      className="mt-2 min-h-36 resize-none text-sm leading-relaxed"
                     />
                   </div>
 
                   {contextImages.map((image, index) => (
-                    <div key={image.id} className="min-w-[220px] snap-start rounded-xl border border-border bg-card p-2">
-                      <div className="relative h-36 rounded-lg overflow-hidden bg-muted">
+                    <div
+                      key={image.id}
+                      data-image-card={index + 1}
+                      className={imageCardClass(index + 1, "w-[300px] shrink-0 snap-center rounded-xl border border-border bg-card p-3")}
+                    >
+                      <div className="relative h-48 rounded-lg overflow-hidden bg-muted">
                         <img src={image.previewUrl} alt={`Context ${index + 1}`} className="w-full h-full object-cover" />
                         <Badge variant="secondary" className="absolute left-2 top-2">Context {index + 1}</Badge>
                         <button
@@ -1017,11 +1074,11 @@ export default function CalorieTracker() {
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground">Context photo · not used for matching</p>
                       <Textarea
-                        placeholder="Note for this photo, e.g. used 20g from this label..."
+                        placeholder="Note: used 20g from this label, package says 180 kcal per 100g..."
                         value={image.note}
                         onChange={(e) => updateContextNote(image.id, e.target.value)}
-                        rows={2}
-                        className="mt-2 resize-none text-xs"
+                        rows={5}
+                        className="mt-2 min-h-36 resize-none text-sm leading-relaxed"
                       />
                     </div>
                   ))}
@@ -1029,47 +1086,30 @@ export default function CalorieTracker() {
                   {contextImages.length < 5 && (
                     <button
                       type="button"
+                      data-image-card={contextImages.length + 1}
                       onClick={() => contextFileInputRef.current?.click()}
-                      className="min-w-[180px] snap-start rounded-xl border border-dashed border-border hover:border-primary bg-muted/30 hover:bg-primary/5 transition-colors p-4 text-left"
+                      className={imageCardClass(contextImages.length + 1, "w-[240px] shrink-0 snap-center rounded-xl border border-dashed border-border bg-muted/30 p-4 text-left hover:border-primary hover:bg-primary/5")}
                     >
                       <Camera className="h-5 w-5 mb-2 text-muted-foreground" />
                       <p className="text-sm font-medium">Add context photo</p>
                       <p className="text-xs text-muted-foreground mt-1">Label, packaging, scale, ingredients</p>
                     </button>
                   )}
+                  <div
+                    className="shrink-0"
+                    aria-hidden="true"
+                    style={{ width: contextImages.length < 5 ? "max(0px, calc((100% - 240px) / 2))" : "max(0px, calc((100% - 300px) / 2))" }}
+                  />
                 </div>
               </div>
             )}
-
-            {/* Meal description textarea */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="meal-description" className="text-sm font-medium">
-                  Add Details
-                </Label>
-                <span className="text-xs text-muted-foreground">(Optional)</span>
-              </div>
-              <Textarea
-                id="meal-description"
-                placeholder="e.g., Grilled chicken 200g, brown rice, steamed broccoli..."
-                value={mealDescription}
-                onChange={(e) => setMealDescription(e.target.value)}
-                rows={3}
-                className="resize-none text-sm"
-              />
-              <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
-                <span className="text-sm">💡</span>
-                <p>Include weight, ingredients, and cooking method for more accurate nutrition estimates</p>
-              </div>
-            </div>
 
             {/* Submit button - only show when image is selected */}
             {selectedImage && (
               <Button
                 onClick={handleMealSubmission}
                 disabled={isSubmittingMeal}
-                className="w-full shadow-md"
-                size="lg"
+                className="w-full h-12 shadow-md"
               >
                 {isSubmittingMeal ? (
                   <>
