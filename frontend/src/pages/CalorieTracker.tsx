@@ -905,7 +905,7 @@ export default function CalorieTracker() {
   if (showWeeklyHistory) {
     return (
       <>
-        <WeeklyHistoryPage onBack={openTrack} userGoals={userGoals} />
+        <WeeklyHistoryPage onBack={openTrack} userGoals={userGoals} onActivityLogged={loadActivityLogs} />
         {bottomNav}
       </>
     );

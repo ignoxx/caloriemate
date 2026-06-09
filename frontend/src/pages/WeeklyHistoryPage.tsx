@@ -13,6 +13,7 @@ import { Collections, UserProfilesGoalOptions, MealTemplatesProcessingStatusOpti
 interface WeeklyHistoryPageProps {
   onBack: () => void;
   userGoals: UserGoals | null;
+  onActivityLogged?: () => void;
 }
 
 interface DayData {
@@ -24,7 +25,7 @@ interface DayData {
   proteinStatus: 'none' | 'perfect' | 'close' | 'under';
 }
 
-export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPageProps) {
+export default function WeeklyHistoryPage({ onBack, userGoals, onActivityLogged }: WeeklyHistoryPageProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStart(new Date()));
   const [weeklyData, setWeeklyData] = useState<DayData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -222,6 +223,7 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
       });
 
       await loadActivityLogs();
+      onActivityLogged?.();
       setShowActivityModal(false);
     } catch (error) {
       console.error("Error logging activity:", error);
