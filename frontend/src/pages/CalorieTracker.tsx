@@ -57,6 +57,9 @@ export default function CalorieTracker() {
   const [imageContext, setImageContext] = useState("");
   const [contextImages, setContextImages] = useState<Array<{ id: string; file: File; previewUrl: string; note: string }>>([]);
   const [activeImageCard, setActiveImageCard] = useState(0);
+  const [dragNavIndex, setDragNavIndex] = useState<number | null>(null);
+  const [dragNavPosition, setDragNavPosition] = useState<number | null>(null);
+  const [isNavDragging, setIsNavDragging] = useState(false);
   const [reanalyzingMealId, setReanalyzingMealId] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
@@ -69,6 +72,7 @@ export default function CalorieTracker() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contextFileInputRef = useRef<HTMLInputElement>(null);
   const imageCarouselRef = useRef<HTMLDivElement>(null);
+  const bottomNavRef = useRef<HTMLDivElement>(null);
   const hasLoadedMealsRef = useRef(false);
   const hasLoadedProfileRef = useRef(false);
   const { user } = useAuth();
@@ -807,27 +811,143 @@ export default function CalorieTracker() {
     );
   }
 
+  const openTrack = () => {
+    setShowProfile(false);
+    setShowWeeklyHistory(false);
+    setShowMealLibrary(false);
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  };
+
+  const activeNavIndex = showMealLibrary ? 1 : showWeeklyHistory ? 2 : showProfile ? 3 : 0;
+  const displayedNavIndex = dragNavIndex ?? activeNavIndex;
+  const displayedNavPosition = dragNavPosition ?? activeNavIndex;
+
+  const openNavIndex = (index: number) => {
+    if (index === 0) {
+      openTrack();
+      return;
+    }
+
+    setShowMealLibrary(index === 1);
+    setShowWeeklyHistory(index === 2);
+    setShowProfile(index === 3);
+  };
+
+  const navPointerState = (clientX: number) => {
+    const nav = bottomNavRef.current;
+    if (!nav) return { index: activeNavIndex, position: activeNavIndex };
+
+    const rect = nav.getBoundingClientRect();
+    const segment = rect.width / 4;
+    const x = Math.min(Math.max(clientX - rect.left, 0), rect.width - 1);
+    const rawPosition = x / segment - 0.5;
+    const position = Math.min(3, Math.max(0, rawPosition));
+    const index = Math.min(3, Math.max(0, Math.round(position)));
+    return { index, position };
+  };
+
+  const handleNavPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const { index, position } = navPointerState(event.clientX);
+    setIsNavDragging(true);
+    setDragNavIndex(index);
+    setDragNavPosition(position);
+  };
+
+  const handleNavPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isNavDragging) return;
+    const { index, position } = navPointerState(event.clientX);
+    setDragNavIndex(index);
+    setDragNavPosition(position);
+  };
+
+  const handleNavPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const { index } = navPointerState(event.clientX);
+    setIsNavDragging(false);
+    setDragNavIndex(null);
+    setDragNavPosition(null);
+    openNavIndex(index);
+  };
+
+  const handleNavPointerCancel = () => {
+    setIsNavDragging(false);
+    setDragNavIndex(null);
+    setDragNavPosition(null);
+  };
+
+  const navButtonClass = (index: number) =>
+    `relative z-10 flex flex-col items-center gap-0.5 rounded-[1.5rem] px-2 py-2 transition-colors ${
+      displayedNavIndex === index ? "text-primary" : "text-muted-foreground"
+    }`;
+
+  const bottomNav = (
+    <nav className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 flex justify-center px-4">
+      <div
+        ref={bottomNavRef}
+        onPointerDown={handleNavPointerDown}
+        onPointerMove={handleNavPointerMove}
+        onPointerUp={handleNavPointerUp}
+        onPointerCancel={handleNavPointerCancel}
+        className="pointer-events-auto relative grid w-full max-w-sm touch-none select-none grid-cols-4 overflow-hidden rounded-[2rem] border border-white/20 bg-background/55 p-1.5 shadow-2xl shadow-black/25 backdrop-blur-2xl supports-[backdrop-filter]:bg-background/45 dark:border-white/10 dark:bg-white/10"
+      >
+        <div
+          className={`absolute bottom-1.5 top-1.5 rounded-[1.5rem] border border-white/20 bg-primary/20 shadow-lg shadow-primary/20 backdrop-blur-xl will-change-transform transition-transform ${isNavDragging ? "duration-150 ease-out" : "duration-500"}`}
+          style={{
+            left: "0.375rem",
+            width: "calc((100% - 0.75rem) / 4)",
+            transform: `translate3d(${displayedNavPosition * 100}%, 0, 0) scale(${isNavDragging ? 1.04 : 1})`,
+            transitionTimingFunction: isNavDragging ? "cubic-bezier(0.2, 0.9, 0.2, 1)" : "cubic-bezier(0.2, 1.25, 0.2, 1)",
+          }}
+        />
+        <button type="button" className={navButtonClass(0)} aria-label="Track">
+          <Camera className="h-5 w-5" />
+          <span className="text-[11px] font-medium">Track</span>
+        </button>
+        <button type="button" className={navButtonClass(1)} aria-label="Meals">
+          <History className="h-5 w-5" />
+          <span className="text-[11px] font-medium">Meals</span>
+        </button>
+        <button type="button" className={navButtonClass(2)} aria-label="History">
+          <Calendar className="h-5 w-5" />
+          <span className="text-[11px] font-medium">History</span>
+        </button>
+        <button type="button" className={navButtonClass(3)} aria-label="Profile">
+          <User className="h-5 w-5" />
+          <span className="text-[11px] font-medium">Profile</span>
+        </button>
+      </div>
+    </nav>
+  );
+
   if (showProfile) {
-    return <ProfilePage onBack={() => setShowProfile(false)} />;
+    return (
+      <>
+        <ProfilePage onBack={openTrack} />
+        {bottomNav}
+      </>
+    );
   }
 
   if (showWeeklyHistory) {
     return (
-      <WeeklyHistoryPage
-        onBack={() => setShowWeeklyHistory(false)}
-        userGoals={userGoals}
-      />
+      <>
+        <WeeklyHistoryPage onBack={openTrack} userGoals={userGoals} />
+        {bottomNav}
+      </>
     );
   }
 
   if (showMealLibrary) {
     return (
-      <MealLibraryPage
-        onBack={() => setShowMealLibrary(false)}
-        onMealLogged={() => {
-          loadMealHistory();
-        }}
-      />
+      <>
+        <MealLibraryPage
+          onBack={openTrack}
+          onMealLogged={() => {
+            loadMealHistory();
+          }}
+        />
+        {bottomNav}
+      </>
     );
   }
 
@@ -842,52 +962,7 @@ export default function CalorieTracker() {
   const netCalories = todayCalories - todayCaloriesBurned;
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div className="bg-card shadow-sm border-b border-border">
-        <div className="max-w-md mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-xl font-bold leading-tight text-foreground">
-                CalorieMate
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Nutrition assistant
-              </p>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowMealLibrary(true)}
-                title="My Meals"
-              >
-                <History className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowWeeklyHistory(true)}
-                title="Weekly History"
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowProfile(true)}
-                title="Profile"
-              >
-                <User className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="min-h-screen bg-background pb-28">
       <div className="max-w-md mx-auto px-4 py-4 space-y-4">
         {/* Daily Progress */}
         <Card>
@@ -967,8 +1042,8 @@ export default function CalorieTracker() {
         {/* <WeeklyActivity mealHistory={mealHistory} userGoals={userGoals} />*/}
 
         {/* Add Meal Button */}
-        <Card className="border-2 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent">
-          <div className={selectedImage ? "p-4 pb-1" : "p-6 pb-4"}>
+        <Card className={`border-2 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent ${selectedImage ? "" : "min-h-[42dvh]"}`}>
+          <div className="p-6 pb-4">
             {reanalyzingMealId && (
               <div className="mb-4 flex items-center gap-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 px-3 py-2 rounded-md text-sm border border-blue-200 dark:border-blue-800">
                 <Repeat className="h-4 w-4" />
@@ -984,15 +1059,15 @@ export default function CalorieTracker() {
                 </button>
               </div>
             )}
-            <div className={selectedImage ? "flex items-center gap-2 mb-2" : "flex items-center gap-3 mb-4"}>
-              <div className={selectedImage ? "w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center" : "w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center"}>
-                <Camera className={selectedImage ? "h-4 w-4 text-primary" : "h-5 w-5 text-primary"} />
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <Camera className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className={selectedImage ? "text-base font-semibold text-foreground leading-tight" : "font-semibold text-foreground"}>
+                <h3 className="font-semibold text-foreground">
                   {reanalyzingMealId ? "Re-analyze Meal" : "Add New Meal"}
                 </h3>
-                <p className={selectedImage ? "text-[11px] text-muted-foreground leading-tight" : "text-xs text-muted-foreground"}>
+                <p className="text-xs text-muted-foreground">
                   {reanalyzingMealId
                     ? "Update details and re-submit for analysis"
                     : "Snap and analyze instantly"}
@@ -1000,22 +1075,33 @@ export default function CalorieTracker() {
               </div>
             </div>
 
-            {!selectedImage && (
-              <Button
-                onClick={handleCameraCapture}
-                className="w-full shadow-md"
-                size="lg"
-              >
-                <Camera className="h-5 w-5 mr-2" />
-                Take a Photo
-              </Button>
-            )}
           </div>
 
           <CardContent className="pt-2 space-y-3">
+            {!selectedImage && (
+              <button
+                type="button"
+                onClick={handleCameraCapture}
+                className="group flex min-h-[32dvh] w-full flex-col justify-between rounded-3xl border-2 border-dashed border-primary/35 bg-primary/5 p-5 text-left transition active:scale-[0.99] hover:border-primary/60 hover:bg-primary/10"
+              >
+                <div className="space-y-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20 text-primary shadow-inner">
+                    <Camera className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">Start with meal photo</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Add packaging or label photos after primary image.</p>
+                  </div>
+                </div>
+                <div className="mt-8 flex items-center justify-center rounded-2xl bg-primary px-4 py-4 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25">
+                  <Camera className="mr-2 h-5 w-5" />
+                  Take a Photo
+                </div>
+              </button>
+            )}
             {/* Image rail */}
             {selectedImage && imagePreviewUrl && (
-              <div className="relative space-y-3 overflow-visible">
+              <div className="relative -mx-6 space-y-3 overflow-visible">
                 <div
                   ref={imageCarouselRef}
                   onScroll={handleImageCarouselScroll}
@@ -1024,11 +1110,11 @@ export default function CalorieTracker() {
                   <div
                     className="shrink-0"
                     aria-hidden="true"
-                    style={{ width: "max(0px, calc((100% - 300px) / 2))" }}
+                    style={{ width: "max(0px, calc((100% - 240px) / 2))" }}
                   />
                   <div
                     data-image-card={0}
-                    className={imageCardClass(0, "w-[300px] shrink-0 snap-center rounded-xl border-2 border-primary bg-primary/5 p-3")}
+                    className={imageCardClass(0, "w-[240px] shrink-0 snap-center rounded-xl border-2 border-primary bg-primary/5 p-3")}
                   >
                     <div className="relative h-48 rounded-lg overflow-hidden bg-muted">
                       <img src={imagePreviewUrl} alt="Primary meal" className="w-full h-full object-cover" />
@@ -1059,7 +1145,7 @@ export default function CalorieTracker() {
                     <div
                       key={image.id}
                       data-image-card={index + 1}
-                      className={imageCardClass(index + 1, "w-[300px] shrink-0 snap-center rounded-xl border border-border bg-card p-3")}
+                      className={imageCardClass(index + 1, "w-[240px] shrink-0 snap-center rounded-xl border border-border bg-card p-3")}
                     >
                       <div className="relative h-48 rounded-lg overflow-hidden bg-muted">
                         <img src={image.previewUrl} alt={`Context ${index + 1}`} className="w-full h-full object-cover" />
@@ -1088,7 +1174,7 @@ export default function CalorieTracker() {
                       type="button"
                       data-image-card={contextImages.length + 1}
                       onClick={() => contextFileInputRef.current?.click()}
-                      className={imageCardClass(contextImages.length + 1, "w-[240px] shrink-0 snap-center rounded-xl border border-dashed border-border bg-muted/30 p-4 text-left hover:border-primary hover:bg-primary/5")}
+                      className={imageCardClass(contextImages.length + 1, "w-[200px] shrink-0 snap-center rounded-xl border-2 border-dashed border-primary/60 bg-primary/10 p-4 text-left shadow-sm shadow-primary/20 hover:border-primary hover:bg-primary/15")}
                     >
                       <Camera className="h-5 w-5 mb-2 text-muted-foreground" />
                       <p className="text-sm font-medium">Add context photo</p>
@@ -1098,7 +1184,7 @@ export default function CalorieTracker() {
                   <div
                     className="shrink-0"
                     aria-hidden="true"
-                    style={{ width: contextImages.length < 5 ? "max(0px, calc((100% - 240px) / 2))" : "max(0px, calc((100% - 300px) / 2))" }}
+                    style={{ width: contextImages.length < 5 ? "max(0px, calc((100% - 200px) / 2))" : "max(0px, calc((100% - 240px) / 2))" }}
                   />
                 </div>
               </div>
@@ -1158,6 +1244,8 @@ export default function CalorieTracker() {
           </div>
         )}
       </div>
+
+      {bottomNav}
 
       {/* Hidden file input */}
       <input

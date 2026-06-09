@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Calendar, ThumbsUp, ThumbsDown, Minus, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, ThumbsUp, ThumbsDown, Minus, Info } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -261,34 +261,12 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
   }, { totalDaysLogged: 0, perfectDays: 0 });
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <div className="bg-card shadow-sm border-b border-border">
-        <div className="max-w-md mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onBack}
-                className="h-8 w-8"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  Weekly History
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Track your nutrition progress
-                </p>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-background pb-28">
+      <div className="max-w-md mx-auto px-4 py-4 space-y-4">
+        <div className="pt-1">
+          <h1 className="text-xl font-semibold text-foreground">Weekly History</h1>
+          <p className="text-xs text-muted-foreground">Track your nutrition progress</p>
         </div>
-      </div>
-
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
         {/* Week Navigation */}
         <Card>
           <CardHeader className="pb-3">

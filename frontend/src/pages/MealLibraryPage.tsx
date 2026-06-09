@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, BookOpen, Loader2, Plus } from "lucide-react";
+import { BookOpen, Loader2, Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -76,20 +76,12 @@ export default function MealLibraryPage({ onBack, onMealLogged }: MealLibraryPag
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="sticky top-0 z-10 bg-background border-b border-border">
-        <div className="flex items-center gap-4 p-4">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold">My Meals</h1>
-          </div>
+    <div className="min-h-screen bg-background pb-28">
+      <div className="p-4 space-y-4">
+        <div className="flex items-center gap-2 pt-1">
+          <BookOpen className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-semibold">My Meals</h1>
         </div>
-      </div>
-
-      <div className="p-4">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />

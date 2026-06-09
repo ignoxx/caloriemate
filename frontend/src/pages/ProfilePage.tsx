@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Loader2, User, Target, Save, ArrowLeft, LogOut, Info, ChevronDown } from "lucide-react";
+import { Loader2, User, Target, Save, LogOut, Info, ChevronDown } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -148,47 +148,20 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-card shadow-sm border-b border-border">
-        <div className="max-w-md mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              {onBack && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onBack}
-                  title="Back to dashboard"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              )}
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  Profile
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Update your nutrition goals
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={logout}
-                title="Sign out"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
-              <ThemeToggle />
-            </div>
+    <div className="min-h-screen bg-background pb-28">
+      <div className="max-w-md mx-auto px-4 py-4 space-y-4">
+        <div className="flex items-center justify-between pt-1">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Profile</h1>
+            <p className="text-xs text-muted-foreground">Update your nutrition goals</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={logout} title="Sign out">
+              <LogOut className="h-4 w-4" />
+            </Button>
+            <ThemeToggle />
           </div>
         </div>
-      </div>
-
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
         {/* Progress Tracking Tips */}
         <Collapsible open={tipsOpen} onOpenChange={setTipsOpen}>
           <div className="space-y-2">
