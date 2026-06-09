@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -26,6 +27,51 @@ func getImageReader(app core.App, record *core.Record) (io.ReadSeekCloser, error
 	path := record.BaseFilesPath() + "/" + imageNames[0]
 	fsys, _ := app.NewFilesystem()
 	return fsys.GetReader(path)
+}
+
+type contextNote struct {
+	Filename string `json:"filename"`
+	Note     string `json:"note"`
+}
+
+func getContextImages(app core.App, record *core.Record) ([]ai.ContextImage, []io.Closer, error) {
+	imageNames := record.GetStringSlice("context_images")
+	if len(imageNames) == 0 {
+		return nil, nil, nil
+	}
+
+	var notes []contextNote
+	if rawNotes := record.GetString("context_notes"); rawNotes != "" {
+		if err := json.Unmarshal([]byte(rawNotes), &notes); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	noteByFile := make(map[string]string, len(notes))
+	for _, note := range notes {
+		noteByFile[note.Filename] = note.Note
+	}
+
+	fsys, _ := app.NewFilesystem()
+	contextImages := make([]ai.ContextImage, 0, len(imageNames))
+	closers := make([]io.Closer, 0, len(imageNames))
+	for i, imageName := range imageNames {
+		reader, err := fsys.GetReader(record.BaseFilesPath() + "/" + imageName)
+		if err != nil {
+			for _, closer := range closers {
+				_ = closer.Close()
+			}
+			return nil, nil, err
+		}
+		note := noteByFile[imageName]
+		if note == "" && i < len(notes) {
+			note = notes[i].Note
+		}
+		contextImages = append(contextImages, ai.ContextImage{Image: reader, Note: note})
+		closers = append(closers, reader)
+	}
+
+	return contextImages, closers, nil
 }
 
 func generateMealEmbedding(app core.App, record *core.Record, imgLlm ai.Embedder) ([]byte, error) {
@@ -123,8 +169,17 @@ func analyzeMealTemplate(app core.App, record *core.Record, llm ai.Analyzer, sim
 		}
 		defer imageFile.Close()
 
+		contextImages, closers, err := getContextImages(app, record)
+		if err != nil {
+			return err
+		}
+		for _, closer := range closers {
+			defer closer.Close()
+		}
+
+		imageContext := record.GetString("image_context")
 		userContext := record.GetString("description")
-		meal, err := llm.EstimateNutritions(imageFile, userContext)
+		meal, err := llm.EstimateNutritions(imageFile, imageContext, contextImages, userContext)
 		if err != nil {
 			slog.Error("Failed to analyze meal template", "error", err)
 			return err

@@ -56,6 +56,8 @@ export default function CalorieTracker() {
   const [mealDescription, setMealDescription] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imageContext, setImageContext] = useState("");
+  const [contextImages, setContextImages] = useState<Array<{ id: string; file: File; previewUrl: string; note: string }>>([]);
   const [reanalyzingMealId, setReanalyzingMealId] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showWeeklyHistory, setShowWeeklyHistory] = useState(false);
@@ -66,6 +68,7 @@ export default function CalorieTracker() {
     new Date().toDateString(),
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contextFileInputRef = useRef<HTMLInputElement>(null);
   const hasLoadedMealsRef = useRef(false);
   const hasLoadedProfileRef = useRef(false);
   const { user } = useAuth();
@@ -388,16 +391,52 @@ export default function CalorieTracker() {
     }
   };
 
+  const clearSelectedImages = () => {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    contextImages.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+    setSelectedImage(null);
+    setImagePreviewUrl(null);
+    setImageContext("");
+    setContextImages([]);
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
-      }
+      clearSelectedImages();
       const newUrl = URL.createObjectURL(file);
       setSelectedImage(file);
       setImagePreviewUrl(newUrl);
     }
+  };
+
+  const handleContextFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedImage) return;
+    const files = Array.from(event.target.files ?? []).slice(0, Math.max(0, 5 - contextImages.length));
+    if (files.length === 0) return;
+
+    setContextImages((prev) => [
+      ...prev,
+      ...files.map((file) => ({
+        id: `${file.name}_${Date.now()}_${Math.random()}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        note: "",
+      })),
+    ]);
+    event.target.value = "";
+  };
+
+  const updateContextNote = (id: string, note: string) => {
+    setContextImages((prev) => prev.map((image) => image.id === id ? { ...image, note } : image));
+  };
+
+  const removeContextImage = (id: string) => {
+    setContextImages((prev) => {
+      const image = prev.find((item) => item.id === id);
+      if (image) URL.revokeObjectURL(image.previewUrl);
+      return prev.filter((item) => item.id !== id);
+    });
   };
 
   const handleMealSubmission = async () => {
@@ -411,11 +450,15 @@ export default function CalorieTracker() {
     try {
       if (reanalyzingMealId) {
         // RE-ANALYZE: Update existing meal template
-        await pb.collection(Collections.MealTemplates).update(reanalyzingMealId, {
-          image: selectedImage,
-          description: mealDescription || "",
-          processing_status: "pending",
-        });
+        const formData = new FormData();
+        formData.append("image", selectedImage);
+        formData.append("image_context", imageContext || "");
+        formData.append("description", mealDescription || "");
+        formData.append("processing_status", "pending");
+        contextImages.forEach((image) => formData.append("context_images", image.file));
+        formData.append("context_notes", JSON.stringify(contextImages.map((image) => ({ filename: image.file.name, note: image.note }))));
+
+        await pb.collection(Collections.MealTemplates).update(reanalyzingMealId, formData);
 
         // Update the existing entry in meal history to show processing status
         setMealHistory((prev) =>
@@ -430,13 +473,9 @@ export default function CalorieTracker() {
           ),
         );
 
-        setSelectedImage(null);
+        clearSelectedImages();
         setMealDescription("");
         setReanalyzingMealId(null);
-        if (imagePreviewUrl) {
-          URL.revokeObjectURL(imagePreviewUrl);
-          setImagePreviewUrl(null);
-        }
 
         // Load fresh meal history to get any updates
         await loadMealHistory();
@@ -466,11 +505,15 @@ export default function CalorieTracker() {
         // Add optimistic entry to the beginning of meal history immediately
         setMealHistory((prev) => [optimisticMeal, ...prev]);
 
-        const newMealTemplate = await pb.collection(Collections.MealTemplates).create({
-          image: selectedImage,
-          processing_status: "pending",
-          description: mealDescription || "",
-        });
+        const formData = new FormData();
+        formData.append("image", selectedImage);
+        formData.append("image_context", imageContext || "");
+        formData.append("processing_status", "pending");
+        formData.append("description", mealDescription || "");
+        contextImages.forEach((image) => formData.append("context_images", image.file));
+        formData.append("context_notes", JSON.stringify(contextImages.map((image) => ({ filename: image.file.name, note: image.note }))));
+
+        const newMealTemplate = await pb.collection(Collections.MealTemplates).create(formData);
 
         // Update the optimistic entry with the real ID and processing status
         setMealHistory((prev) =>
@@ -487,12 +530,8 @@ export default function CalorieTracker() {
           ),
         );
 
-        setSelectedImage(null);
+        clearSelectedImages();
         setMealDescription("");
-        if (imagePreviewUrl) {
-          URL.revokeObjectURL(imagePreviewUrl);
-          setImagePreviewUrl(null);
-        }
 
         // Load fresh meal history to get any updates
         await loadMealHistory();
@@ -505,10 +544,7 @@ export default function CalorieTracker() {
         setMealHistory((prev) => prev.filter((meal) => meal.id !== tempId));
       }
 
-      // Clean up on error
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
-      }
+      // Keep selected images so user can retry or adjust notes
     } finally {
       setIsSubmittingMeal(false);
     }
@@ -612,14 +648,12 @@ export default function CalorieTracker() {
 
       const file = new File([blob], template.image, { type: blob.type });
 
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
-      }
-
+      clearSelectedImages();
       const newUrl = URL.createObjectURL(file);
 
       setSelectedImage(file);
       setImagePreviewUrl(newUrl);
+      setImageContext((template as any).image_context || '');
       setMealDescription(meal.userContext || template.description || '');
       setReanalyzingMealId(meal.mealTemplateId);
 
@@ -899,12 +933,8 @@ export default function CalorieTracker() {
                  <button
                   onClick={() => {
                     setReanalyzingMealId(null);
-                    setSelectedImage(null);
+                    clearSelectedImages();
                     setMealDescription("");
-                    if (imagePreviewUrl) {
-                      URL.revokeObjectURL(imagePreviewUrl);
-                      setImagePreviewUrl(null);
-                    }
                   }}
                   className="ml-auto text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100"
                 >
@@ -941,35 +971,73 @@ export default function CalorieTracker() {
           </div>
 
           <CardContent className="pt-4 space-y-4">
-            {/* Show selected image preview */}
+            {/* Image rail */}
             {selectedImage && imagePreviewUrl && (
-              <div className="relative">
-                <div className="w-full h-40 rounded-lg overflow-hidden bg-muted border-2 border-dashed border-primary/30">
-                  <img
-                    src={imagePreviewUrl}
-                    alt="Selected meal"
-                    className="w-full h-full object-cover"
-                  />
+              <div className="space-y-3">
+                <div className="flex gap-3 overflow-x-auto pb-2 snap-x">
+                  <div className="min-w-[220px] snap-start rounded-xl border-2 border-primary bg-primary/5 p-2 shadow-sm">
+                    <div className="relative h-36 rounded-lg overflow-hidden bg-muted">
+                      <img src={imagePreviewUrl} alt="Primary meal" className="w-full h-full object-cover" />
+                      <Badge className="absolute left-2 top-2">Meal photo</Badge>
+                      <button
+                        className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-all hover:scale-105 border border-white/20"
+                        onClick={() => {
+                          clearSelectedImages();
+                          setMealDescription("");
+                          setReanalyzingMealId(null);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                        title="Remove meal photo and context photos"
+                      >
+                        <X className="h-4 w-4 text-white" />
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs font-medium text-primary">Primary image · used for matching</p>
+                    <Textarea
+                      placeholder="Optional note for meal photo, e.g. half eaten, 2 servings shown..."
+                      value={imageContext}
+                      onChange={(e) => setImageContext(e.target.value)}
+                      rows={2}
+                      className="mt-2 resize-none text-xs"
+                    />
+                  </div>
+
+                  {contextImages.map((image, index) => (
+                    <div key={image.id} className="min-w-[220px] snap-start rounded-xl border border-border bg-card p-2">
+                      <div className="relative h-36 rounded-lg overflow-hidden bg-muted">
+                        <img src={image.previewUrl} alt={`Context ${index + 1}`} className="w-full h-full object-cover" />
+                        <Badge variant="secondary" className="absolute left-2 top-2">Context {index + 1}</Badge>
+                        <button
+                          className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-all hover:scale-105 border border-white/20"
+                          onClick={() => removeContextImage(image.id)}
+                          title="Remove context photo"
+                        >
+                          <X className="h-4 w-4 text-white" />
+                        </button>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">Context photo · not used for matching</p>
+                      <Textarea
+                        placeholder="Note for this photo, e.g. used 20g from this label..."
+                        value={image.note}
+                        onChange={(e) => updateContextNote(image.id, e.target.value)}
+                        rows={2}
+                        className="mt-2 resize-none text-xs"
+                      />
+                    </div>
+                  ))}
+
+                  {contextImages.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={() => contextFileInputRef.current?.click()}
+                      className="min-w-[180px] snap-start rounded-xl border border-dashed border-border hover:border-primary bg-muted/30 hover:bg-primary/5 transition-colors p-4 text-left"
+                    >
+                      <Camera className="h-5 w-5 mb-2 text-muted-foreground" />
+                      <p className="text-sm font-medium">Add context photo</p>
+                      <p className="text-xs text-muted-foreground mt-1">Label, packaging, scale, ingredients</p>
+                    </button>
+                  )}
                 </div>
-                <button
-                  className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-all hover:scale-105 border border-white/20"
-                  onClick={() => {
-                    setSelectedImage(null);
-                    setMealDescription("");
-                    setReanalyzingMealId(null);
-                    if (imagePreviewUrl) {
-                      URL.revokeObjectURL(imagePreviewUrl);
-                      setImagePreviewUrl(null);
-                    }
-                    // Reset file input
-                    if (fileInputRef.current) {
-                      fileInputRef.current.value = "";
-                    }
-                  }}
-                  title="Remove image and select another"
-                >
-                  <X className="h-4 w-4 text-white" />
-                </button>
               </div>
             )}
 
@@ -1057,6 +1125,14 @@ export default function CalorieTracker() {
         type="file"
         accept="image/*"
         onChange={handleFileUpload}
+        className="hidden"
+      />
+      <input
+        ref={contextFileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleContextFileUpload}
         className="hidden"
       />
 

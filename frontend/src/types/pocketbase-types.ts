@@ -5,22 +5,25 @@
 import type PocketBase from 'pocketbase'
 import type { RecordService } from 'pocketbase'
 
-export enum Collections {
-	Authorigins = "_authOrigins",
-	Externalauths = "_externalAuths",
-	Mfas = "_mfas",
-	Otps = "_otps",
-	Superusers = "_superusers",
-	ActivityLogs = "activity_logs",
-	MealHistory = "meal_history",
-	MealTemplates = "meal_templates",
-	UserProfiles = "user_profiles",
-	Users = "users",
-}
+export const Collections = {
+	Authorigins: "_authOrigins",
+	Externalauths: "_externalAuths",
+	Mfas: "_mfas",
+	Otps: "_otps",
+	Superusers: "_superusers",
+	ActivityLogs: "activity_logs",
+	MealHistory: "meal_history",
+	MealTemplates: "meal_templates",
+	UserProfiles: "user_profiles",
+	Users: "users",
+} as const
+export type Collections = typeof Collections[keyof typeof Collections]
 
 // Alias types for improved usability
 export type IsoDateString = string
+export type IsoAutoDateString = string & { readonly autodate: unique symbol }
 export type RecordIdString = string
+export type FileNameString = string & { readonly filename: unique symbol }
 export type HTMLString = string
 
 type ExpandType<T> = unknown extends T
@@ -47,64 +50,65 @@ export type AuthSystemFields<T = unknown> = {
 
 export type AuthoriginsRecord = {
 	collectionRef: string
-	created?: IsoDateString
+	created: IsoAutoDateString
 	fingerprint: string
 	id: string
 	recordRef: string
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 }
 
 export type ExternalauthsRecord = {
 	collectionRef: string
-	created?: IsoDateString
+	created: IsoAutoDateString
 	id: string
 	provider: string
 	providerId: string
 	recordRef: string
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 }
 
 export type MfasRecord = {
 	collectionRef: string
-	created?: IsoDateString
+	created: IsoAutoDateString
 	id: string
 	method: string
 	recordRef: string
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 }
 
 export type OtpsRecord = {
 	collectionRef: string
-	created?: IsoDateString
+	created: IsoAutoDateString
 	id: string
 	password: string
 	recordRef: string
 	sentTo?: string
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 }
 
 export type SuperusersRecord = {
-	created?: IsoDateString
+	created: IsoAutoDateString
 	email: string
 	emailVisibility?: boolean
 	id: string
 	password: string
 	tokenKey: string
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 	verified?: boolean
 }
 
-export enum ActivityLogsActivityTypeOptions {
-	"walking" = "walking",
-}
+export const ActivityLogsActivityTypeOptions = {
+	"walking": "walking",
+} as const
+export type ActivityLogsActivityTypeOptions = typeof ActivityLogsActivityTypeOptions[keyof typeof ActivityLogsActivityTypeOptions]
 export type ActivityLogsRecord = {
 	activity_type: ActivityLogsActivityTypeOptions
 	calories_burned?: number
-	created?: IsoDateString
+	created: IsoAutoDateString
 	duration_minutes?: number
 	id: string
 	steps?: number
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 	user: RecordIdString
 }
 
@@ -112,32 +116,36 @@ export type MealHistoryRecord = {
 	adjustments?: string
 	calorie_adjustment?: number
 	carb_adjustment?: number
-	created?: IsoDateString
+	created: IsoAutoDateString
 	fat_adjustment?: number
 	id: string
 	meal?: RecordIdString
 	name?: string
 	portion_multiplier?: number
 	protein_adjustment?: number
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 	user?: RecordIdString
 }
 
-export enum MealTemplatesProcessingStatusOptions {
-	"pending" = "pending",
-	"processing" = "processing",
-	"completed" = "completed",
-	"failed" = "failed",
-}
+export const MealTemplatesProcessingStatusOptions = {
+	"pending": "pending",
+	"processing": "processing",
+	"completed": "completed",
+	"failed": "failed",
+} as const
+export type MealTemplatesProcessingStatusOptions = typeof MealTemplatesProcessingStatusOptions[keyof typeof MealTemplatesProcessingStatusOptions]
 export type MealTemplatesRecord = {
 	ai_description?: string
 	calorie_uncertainty_percent?: number
 	carbs_uncertainty_percent?: number
-	created?: IsoDateString
+	context_images?: FileNameString[]
+	context_notes?: string
+	created: IsoAutoDateString
 	description?: string
 	fat_uncertainty_percent?: number
 	id: string
-	image?: string
+	image?: FileNameString
+	image_context?: string
 	is_primary_in_group?: boolean
 	linked_meal_template_id?: RecordIdString
 	name?: string
@@ -147,33 +155,36 @@ export type MealTemplatesRecord = {
 	total_carbs_g?: number
 	total_fat_g?: number
 	total_protein_g?: number
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 	user?: RecordIdString
 }
 
-export enum UserProfilesGenderOptions {
-	"male" = "male",
-	"female" = "female",
-}
+export const UserProfilesGenderOptions = {
+	"male": "male",
+	"female": "female",
+} as const
+export type UserProfilesGenderOptions = typeof UserProfilesGenderOptions[keyof typeof UserProfilesGenderOptions]
 
-export enum UserProfilesActivityLevelOptions {
-	"sedentary" = "sedentary",
-	"light" = "light",
-	"moderate" = "moderate",
-	"active" = "active",
-	"very active" = "very active",
-}
+export const UserProfilesActivityLevelOptions = {
+	"sedentary": "sedentary",
+	"light": "light",
+	"moderate": "moderate",
+	"active": "active",
+	"very active": "very active",
+} as const
+export type UserProfilesActivityLevelOptions = typeof UserProfilesActivityLevelOptions[keyof typeof UserProfilesActivityLevelOptions]
 
-export enum UserProfilesGoalOptions {
-	"lose_weight" = "lose_weight",
-	"maintain" = "maintain",
-	"gain_weight" = "gain_weight",
-	"gain_muscle" = "gain_muscle",
-}
+export const UserProfilesGoalOptions = {
+	"lose_weight": "lose_weight",
+	"maintain": "maintain",
+	"gain_weight": "gain_weight",
+	"gain_muscle": "gain_muscle",
+} as const
+export type UserProfilesGoalOptions = typeof UserProfilesGoalOptions[keyof typeof UserProfilesGoalOptions]
 export type UserProfilesRecord = {
 	activity_level: UserProfilesActivityLevelOptions
 	age: number
-	created?: IsoDateString
+	created: IsoAutoDateString
 	display_name?: string
 	gender: UserProfilesGenderOptions
 	goal: UserProfilesGoalOptions
@@ -183,21 +194,21 @@ export type UserProfilesRecord = {
 	target_carbs_g?: number
 	target_fat_g?: number
 	target_protein_g?: number
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 	user?: RecordIdString
 	weight_kg: number
 }
 
 export type UsersRecord = {
-	avatar?: string
-	created?: IsoDateString
+	avatar?: FileNameString
+	created: IsoAutoDateString
 	email: string
 	emailVisibility?: boolean
 	id: string
 	name?: string
 	password: string
 	tokenKey: string
-	updated?: IsoDateString
+	updated: IsoAutoDateString
 	verified?: boolean
 }
 
@@ -241,18 +252,68 @@ export type CollectionResponses = {
 	users: UsersResponse
 }
 
+// Utility types for create/update operations
+
+type ProcessCreateAndUpdateFields<T> = Omit<{
+	// Omit AutoDate fields
+	[K in keyof T as Extract<T[K], IsoAutoDateString> extends never ? K : never]: 
+		// Convert FileNameString to File
+		T[K] extends infer U ? 
+			U extends (FileNameString | FileNameString[]) ? 
+				U extends any[] ? File[] : File 
+			: U
+		: never
+}, 'id'>
+
+// Create type for Auth collections
+export type CreateAuth<T> = {
+	id?: RecordIdString
+	email: string
+	emailVisibility?: boolean
+	password: string
+	passwordConfirm: string
+	verified?: boolean
+} & ProcessCreateAndUpdateFields<T>
+
+// Create type for Base collections
+export type CreateBase<T> = {
+	id?: RecordIdString
+} & ProcessCreateAndUpdateFields<T>
+
+// Update type for Auth collections
+export type UpdateAuth<T> = Partial<
+	Omit<ProcessCreateAndUpdateFields<T>, keyof AuthSystemFields>
+> & {
+	email?: string
+	emailVisibility?: boolean
+	oldPassword?: string
+	password?: string
+	passwordConfirm?: string
+	verified?: boolean
+}
+
+// Update type for Base collections
+export type UpdateBase<T> = Partial<
+	Omit<ProcessCreateAndUpdateFields<T>, keyof BaseSystemFields>
+>
+
+// Get the correct create type for any collection
+export type Create<T extends keyof CollectionResponses> =
+	CollectionResponses[T] extends AuthSystemFields
+		? CreateAuth<CollectionRecords[T]>
+		: CreateBase<CollectionRecords[T]>
+
+// Get the correct update type for any collection
+export type Update<T extends keyof CollectionResponses> =
+	CollectionResponses[T] extends AuthSystemFields
+		? UpdateAuth<CollectionRecords[T]>
+		: UpdateBase<CollectionRecords[T]>
+
 // Type for usage with type asserted PocketBase instance
 // https://github.com/pocketbase/js-sdk#specify-typescript-definitions
 
-export type TypedPocketBase = PocketBase & {
-	collection(idOrName: '_authOrigins'): RecordService<AuthoriginsResponse>
-	collection(idOrName: '_externalAuths'): RecordService<ExternalauthsResponse>
-	collection(idOrName: '_mfas'): RecordService<MfasResponse>
-	collection(idOrName: '_otps'): RecordService<OtpsResponse>
-	collection(idOrName: '_superusers'): RecordService<SuperusersResponse>
-	collection(idOrName: 'activity_logs'): RecordService<ActivityLogsResponse>
-	collection(idOrName: 'meal_history'): RecordService<MealHistoryResponse>
-	collection(idOrName: 'meal_templates'): RecordService<MealTemplatesResponse>
-	collection(idOrName: 'user_profiles'): RecordService<UserProfilesResponse>
-	collection(idOrName: 'users'): RecordService<UsersResponse>
-}
+export type TypedPocketBase = {
+	collection<T extends keyof CollectionResponses>(
+		idOrName: T
+	): RecordService<CollectionResponses[T]>
+} & PocketBase

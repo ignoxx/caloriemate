@@ -37,25 +37,51 @@ func New() *Client {
 	}
 }
 
-func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (types.MealTemplate, error) {
-	ctx := context.Background()
-
+func readImage(image io.ReadSeeker) ([]byte, error) {
 	if _, err := image.Seek(0, io.SeekStart); err != nil {
-		return types.MealTemplate{}, errors.New("image seek to start failed with: " + err.Error())
+		return nil, errors.New("image seek to start failed with: " + err.Error())
 	}
-
-	var promptBuf bytes.Buffer
 
 	imgBytes, err := io.ReadAll(image)
 	if err != nil {
-		return types.MealTemplate{}, errors.New("failed to read the image with: " + err.Error())
+		return nil, errors.New("failed to read the image with: " + err.Error())
+	}
+	return imgBytes, nil
+}
+
+func (c *Client) EstimateNutritions(image io.ReadSeeker, imageContext string, contextImages []ai.ContextImage, userContext string) (types.MealTemplate, error) {
+	ctx := context.Background()
+
+	var promptBuf bytes.Buffer
+
+	images, err := readImage(image)
+	if err != nil {
+		return types.MealTemplate{}, err
+	}
+	imageData := []api.ImageData{images}
+	for _, contextImage := range contextImages {
+		imgBytes, err := readImage(contextImage.Image)
+		if err != nil {
+			return types.MealTemplate{}, err
+		}
+		imageData = append(imageData, imgBytes)
 	}
 
+	type promptContextImage struct {
+		Index int
+		Note  string
+	}
 	type input struct {
-		UserContext string
+		ImageContext  string
+		ContextImages []promptContextImage
+		UserContext   string
+	}
+	promptImages := make([]promptContextImage, 0, len(contextImages))
+	for i, contextImage := range contextImages {
+		promptImages = append(promptImages, promptContextImage{Index: i + 1, Note: contextImage.Note})
 	}
 
-	if err := ai.STAGE_SINGLE_PROMPT.Execute(&promptBuf, input{UserContext: userContext}); err != nil {
+	if err := ai.STAGE_SINGLE_PROMPT.Execute(&promptBuf, input{ImageContext: imageContext, ContextImages: promptImages, UserContext: userContext}); err != nil {
 		return types.MealTemplate{}, errors.New("single stage prompt execute failed with: " + err.Error())
 	}
 
@@ -85,9 +111,7 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 			{
 				Role:    "user",
 				Content: promptBuf.String(),
-				Images: []api.ImageData{
-					imgBytes,
-				},
+				Images:  imageData,
 			},
 		},
 	}

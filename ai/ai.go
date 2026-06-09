@@ -10,6 +10,11 @@ type Embedder interface {
 	GenerateEmbeddings(input io.ReadSeeker) ([]float32, error)
 }
 
+type ContextImage struct {
+	Image io.ReadSeeker
+	Note  string
+}
+
 type Analyzer interface {
-	EstimateNutritions(image io.ReadSeeker, userContext string) (types.MealTemplate, error)
+	EstimateNutritions(image io.ReadSeeker, imageContext string, contextImages []ContextImage, userContext string) (types.MealTemplate, error)
 }
