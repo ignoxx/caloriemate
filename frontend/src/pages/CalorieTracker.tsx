@@ -8,7 +8,6 @@ import {
   User,
   History,
   Calendar,
-  Footprints,
   Loader2,
   Repeat,
   X,
@@ -17,8 +16,6 @@ import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "../components/ui/card";
 import { Progress } from "../components/ui/progress";
 import { Badge } from "../components/ui/badge";
@@ -26,13 +23,11 @@ import { Textarea } from "../components/ui/textarea";
 import { OnboardingModal } from "../components/onboarding-modal";
 import { MealReviewModal } from "../components/meal-review-modal";
 import { MealHistoryCard } from "../components/meal-history-card";
-import { ActivityLogModal } from "../components/activity-log-modal";
-import { ActivityCard } from "../components/activity-card";
 import { useAuth } from "../contexts/AuthContext";
 import ProfilePage from "./ProfilePage";
 import WeeklyHistoryPage from "./WeeklyHistoryPage";
 import MealLibraryPage from "./MealLibraryPage";
-import { UserGoals, OnboardingData, ActivityLog } from "../types/common";
+import { UserGoals, OnboardingData } from "../types/common";
 import { MealEntry, SimilarMeal } from "../types/meal";
 import { Collections, MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 
@@ -50,8 +45,6 @@ export default function CalorieTracker() {
   );
   const [selectedMeal, setSelectedMeal] = useState<MealEntry | null>(null);
   const [mealHistory, setMealHistory] = useState<MealEntry[]>([]);
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [showActivityModal, setShowActivityModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageContext, setImageContext] = useState("");
@@ -262,18 +255,21 @@ export default function CalorieTracker() {
   }, []);
 
   const loadActivityLogs = useCallback(async () => {
+    if (!user) {
+      setTodayCaloriesBurned(0);
+      return;
+    }
+
     try {
       const records = await pb.collection(Collections.ActivityLogs).getList(1, 20, {
         sort: "-created",
-        filter: pb.filter("created > {:today}", {
+        filter: pb.filter("user = {:user} && created > {:today}", {
+          user: user.id,
           today: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
         }),
       });
 
-      const activities = records.items as unknown as ActivityLog[];
-      setActivityLogs(activities);
-
-      const totalBurned = activities.reduce(
+      const totalBurned = records.items.reduce(
         (sum, activity) => sum + activity.calories_burned,
         0,
       );
@@ -281,7 +277,7 @@ export default function CalorieTracker() {
     } catch (error) {
       console.error("Failed to load activity logs:", error);
     }
-  }, []);
+  }, [user]);
 
   // Poll for processing status updates
   useEffect(() => {
@@ -706,32 +702,11 @@ export default function CalorieTracker() {
     }
   };
 
-  const handleActivitySubmit = async (data: {
-    steps?: number;
-    durationMinutes?: number;
-    caloriesBurned: number;
-  }) => {
-    try {
-      await pb.collection(Collections.ActivityLogs).create({
-        user: user?.id,
-        activity_type: "walking",
-        steps: data.steps,
-        duration_minutes: data.durationMinutes,
-        calories_burned: data.caloriesBurned,
-      });
-
-      await loadActivityLogs();
-    } catch (error) {
-      console.error("Error logging activity:", error);
-    }
-  };
-
   // Check for daily reset and clear old data on mount
   useEffect(() => {
     const currentDate = new Date().toDateString();
 
     setMealHistory([]);
-    setActivityLogs([]);
     setTodayCalories(0);
     setTodayProtein(0);
     setTodayCaloriesBurned(0);
@@ -754,7 +729,6 @@ export default function CalorieTracker() {
         setTodayProtein(0);
         setTodayCaloriesBurned(0);
         setMealHistory([]);
-        setActivityLogs([]);
         setLastResetDate(currentDate);
 
         hasLoadedMealsRef.current = false;
@@ -962,78 +936,49 @@ export default function CalorieTracker() {
   const netCalories = todayCalories - todayCaloriesBurned;
 
   return (
-    <div className="min-h-screen bg-background pb-28">
-      <div className="max-w-md mx-auto px-4 py-4 space-y-4">
+    <div className="relative min-h-screen overflow-hidden bg-background pb-28">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,hsl(var(--primary)/0.20),transparent_36%),radial-gradient(circle_at_15%_45%,hsl(var(--primary)/0.10),transparent_28%)]" />
+      <div className="relative max-w-md mx-auto px-4 py-4 space-y-4">
         {/* Daily Progress */}
-        <Card>
-          <CardHeader className="py-3 pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Target className="h-4 w-4 text-primary" />
-              Today's Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 pb-3">
-            {/* Calories */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <span className="text-xs font-medium text-foreground">
-                  Calories
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold">
-                    {netCalories} / {userGoals.target_calories}
-                  </span>
-                  {isCalorieGoalMet && (
-                    <Badge variant="secondary" className="text-xs">
-                      Goal Met!
-                    </Badge>
+        <Card className="overflow-hidden border-white/10 bg-card/80 shadow-xl shadow-black/10 backdrop-blur">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-primary">
+                  <Target className="h-4 w-4" />
+                  <p className="text-sm font-semibold">Today</p>
+                </div>
+                <div className="mt-2 flex items-end gap-2">
+                  <p className="text-4xl font-black tracking-tight text-foreground">{netCalories}</p>
+                  <p className="pb-1 text-xs font-medium text-muted-foreground">kcal net</p>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Goal {userGoals.target_calories} kcal</p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-muted/80 px-2.5 py-1 text-muted-foreground">{todayCalories} eaten</span>
+                  {todayCaloriesBurned > 0 && (
+                    <span className="rounded-full bg-primary/15 px-2.5 py-1 font-medium text-primary">-{todayCaloriesBurned} burned</span>
                   )}
                 </div>
               </div>
-              <Progress
-                value={Math.min(calorieProgress, 100)}
-                className="h-1.5"
-              />
-              {todayCaloriesBurned > 0 && (
-                <div className="flex justify-between items-center mt-1 text-xs text-muted-foreground">
-                  <span>{todayCalories} consumed</span>
-                  <span className="text-green-600">-{todayCaloriesBurned} burned</span>
-                </div>
-              )}
-            </div>
-
-            {/* Protein */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <span className="text-xs font-medium text-foreground">
-                  Protein
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold">
-                    {todayProtein}g / {userGoals?.target_protein_g}g
-                  </span>
-                  {isProteinGoalMet && (
-                    <Badge variant="secondary" className="text-xs">
-                      Goal Met!
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <Progress
-                value={Math.min(proteinProgress, 100)}
-                className="h-1.5"
-              />
-            </div>
-
-            {/* Log Activity Button */}
-            <div className="pt-1">
-              <button
-                onClick={() => setShowActivityModal(true)}
-                className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 border border-border rounded-md hover:border-green-500 dark:hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
+              <div
+                className="grid h-20 w-20 shrink-0 place-items-center rounded-full shadow-inner"
+                style={{ background: `conic-gradient(hsl(var(--primary)) ${Math.min(Math.max(calorieProgress, 0), 100)}%, hsl(var(--muted)) 0)` }}
               >
-                <Footprints className="h-3.5 w-3.5" />
-                <span>Log walking activity</span>
-              </button>
+                <div className="grid h-14 w-14 place-items-center rounded-full bg-card text-center">
+                  <span className="text-sm font-bold">{Math.round(Math.min(Math.max(calorieProgress, 0), 100))}%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-muted/40 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Protein</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">{todayProtein}g / {userGoals?.target_protein_g}g</span>
+                  {isProteinGoalMet && <Badge variant="secondary" className="text-xs">Goal</Badge>}
+                </div>
+              </div>
+              <Progress value={Math.min(proteinProgress, 100)} className="h-2" />
             </div>
           </CardContent>
         </Card>
@@ -1082,15 +1027,20 @@ export default function CalorieTracker() {
               <button
                 type="button"
                 onClick={handleCameraCapture}
-                className="group flex min-h-[32dvh] w-full flex-col justify-between rounded-3xl border-2 border-dashed border-primary/35 bg-primary/5 p-5 text-left transition active:scale-[0.99] hover:border-primary/60 hover:bg-primary/10"
+                className="group flex min-h-[32dvh] w-full flex-col justify-between rounded-3xl border-2 border-dashed border-primary/35 bg-[linear-gradient(160deg,hsl(var(--primary)/0.12),hsl(var(--primary)/0.03))] p-5 text-left transition active:scale-[0.99] hover:border-primary/60 hover:bg-primary/10"
               >
-                <div className="space-y-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20 text-primary shadow-inner">
-                    <Camera className="h-7 w-7" />
+                <div className="space-y-5">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/20 text-primary shadow-inner shadow-primary/10">
+                    <Camera className="h-8 w-8" />
                   </div>
                   <div>
-                    <p className="text-lg font-semibold text-foreground">Start with meal photo</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Add packaging or label photos after primary image.</p>
+                    <p className="text-2xl font-black tracking-tight text-foreground">Start with meal photo</p>
+                    <p className="mt-2 max-w-[15rem] text-sm leading-relaxed text-muted-foreground">Snap food first. Add labels, packaging, or scale photos next.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground">1. Meal photo</span>
+                    <span className="rounded-full bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground">2. Context</span>
+                    <span className="rounded-full bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground">3. Review</span>
                   </div>
                 </div>
                 <div className="mt-8 flex items-center justify-center rounded-2xl bg-primary px-4 py-4 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25">
@@ -1214,7 +1164,7 @@ export default function CalorieTracker() {
         </Card>
 
         {/* Today's Meals */}
-        {mealHistory.length > 0 && (
+        {mealHistory.length > 0 ? (
           <div className="space-y-3">
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <Zap className="h-5 w-5 text-accent" />
@@ -1229,20 +1179,13 @@ export default function CalorieTracker() {
               />
             ))}
           </div>
-        )}
-
-        {/* Today's Activities */}
-        {activityLogs.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <Footprints className="h-5 w-5 text-green-600" />
-              Today's Activities
-            </h2>
-            {activityLogs.map((activity) => (
-              <ActivityCard key={activity.id} activity={activity} />
-            ))}
+        ) : !selectedImage ? (
+          <div className="rounded-3xl border border-dashed border-border/80 bg-card/40 p-5 text-center text-sm text-muted-foreground">
+            <Zap className="mx-auto mb-2 h-5 w-5 text-primary/70" />
+            <p className="font-medium text-foreground">No meals logged today</p>
+            <p className="mt-1">Your first photo will appear here after analysis starts.</p>
           </div>
-        )}
+        ) : null}
       </div>
 
       {bottomNav}
@@ -1279,16 +1222,6 @@ export default function CalorieTracker() {
             setShowMealReview(false);
             setSelectedMeal(null);
           }}
-        />
-      )}
-
-      {/* Activity Log Modal */}
-      {userGoals && (
-        <ActivityLogModal
-          open={showActivityModal}
-          onClose={() => setShowActivityModal(false)}
-          onSubmit={handleActivitySubmit}
-          userWeightKg={userGoals.weight}
         />
       )}
     </div>

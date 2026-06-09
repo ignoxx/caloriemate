@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Loader2, User, Target, Save, LogOut, Info, ChevronDown } from "lucide-react";
+import { Calculator, Loader2, User, Target, LogOut, Info, ChevronDown } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -15,6 +15,7 @@ import {
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
 import { ThemeToggle } from "../components/theme-toggle";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "../contexts/AuthContext";
 import { UserProfile } from "../types/common";
 import {
@@ -44,6 +45,9 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   const [success, setSuccess] = useState("");
   const [tipsOpen, setTipsOpen] = useState(false);
   const hasLoadedRef = useRef(false);
+  const autoSaveReadyRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressNextAutoSaveRef = useRef(false);
 
   const { user, logout } = useAuth();
 
@@ -94,14 +98,17 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   };
 
   const handleInputChange = (field: keyof UserProfile, value: string) => {
-    const numValue = parseInt(value) || 0;
+    const numericFields: Array<keyof UserProfile> = ["age", "weight_kg", "height_cm", "target_calories", "target_protein_g"];
     setProfile((prev) => ({
       ...prev,
-      [field]: numValue,
+      [field]: numericFields.includes(field) ? parseInt(value) || 0 : value,
     }));
   };
 
-  const handleSave = async () => {
+  const saveProfile = async (
+    nextProfile: Partial<UserProfile>,
+    successMessage = "",
+  ) => {
     setIsSaving(true);
     setError("");
     setSuccess("");
@@ -111,30 +118,86 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
 
       const profileData = {
         user: user.id,
-        target_calories: profile.target_calories,
-        target_protein_g: profile.target_protein_g,
-        weight_kg: profile.weight_kg,
-        age: profile.age,
+        target_calories: nextProfile.target_calories,
+        target_protein_g: nextProfile.target_protein_g,
+        weight_kg: nextProfile.weight_kg,
+        age: nextProfile.age,
+        height_cm: nextProfile.height_cm,
+        gender: nextProfile.gender,
+        activity_level: nextProfile.activity_level,
+        goal: nextProfile.goal,
       };
 
-      if (profile.id) {
-        // Update existing profile
-        await pb.collection("user_profiles").update(profile.id, profileData);
+      if (nextProfile.id) {
+        await pb.collection("user_profiles").update(nextProfile.id, profileData);
       } else {
-        // Create new profile
-        const newProfile = await pb
-          .collection("user_profiles")
-          .create(profileData);
+        const newProfile = await pb.collection("user_profiles").create(profileData);
         setProfile((prev) => ({ ...prev, id: newProfile.id }));
       }
 
-      setSuccess("Profile updated successfully!");
+      if (successMessage) setSuccess(successMessage);
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Failed to save profile");
     } finally {
       setIsSaving(false);
     }
   };
+
+  const recalculateGoals = async () => {
+    const age = Number(profile.age) || 25;
+    const weight = Number(profile.weight_kg) || 70;
+    const height = Number(profile.height_cm) || 170;
+    const isFemale = profile.gender === UserProfilesGenderOptions.female;
+    const bmr = 10 * weight + 6.25 * height - 5 * age + (isFemale ? -161 : 5);
+    const activityMultipliers: Record<string, number> = {
+      sedentary: 1.2,
+      light: 1.375,
+      moderate: 1.55,
+      active: 1.725,
+      "very active": 1.9,
+    };
+    let calories = bmr * (activityMultipliers[profile.activity_level || UserProfilesActivityLevelOptions.sedentary] || 1.2);
+    if (profile.goal === UserProfilesGoalOptions.lose_weight) calories -= 500;
+    if (profile.goal === UserProfilesGoalOptions.gain_weight || profile.goal === UserProfilesGoalOptions.gain_muscle) calories += 500;
+
+    const nextProfile = {
+      ...profile,
+      target_calories: Math.round(calories),
+      target_protein_g: Math.round(weight * 1.8),
+    };
+
+    suppressNextAutoSaveRef.current = true;
+    setProfile(nextProfile);
+    await saveProfile(nextProfile, "Goals recalculated and saved.");
+  };
+
+  useEffect(() => {
+    if (isLoading || !user) return;
+
+    if (!autoSaveReadyRef.current) {
+      autoSaveReadyRef.current = true;
+      return;
+    }
+
+    if (suppressNextAutoSaveRef.current) {
+      suppressNextAutoSaveRef.current = false;
+      return;
+    }
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveProfile(profile);
+    }, 900);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [profile, isLoading, user]);
 
   if (isLoading) {
     return (
@@ -148,11 +211,12 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-28">
-      <div className="max-w-md mx-auto px-4 py-4 space-y-4">
+    <div className="relative min-h-screen overflow-hidden bg-background pb-28">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,hsl(var(--primary)/0.20),transparent_36%),radial-gradient(circle_at_15%_45%,hsl(var(--primary)/0.10),transparent_28%)]" />
+      <div className="relative max-w-md mx-auto px-4 py-4 space-y-4">
         <div className="flex items-center justify-between pt-1">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">Profile</h1>
+            <h1 className="text-3xl font-black tracking-tight text-foreground">Profile</h1>
             <p className="text-xs text-muted-foreground">Update your nutrition goals</p>
           </div>
           <div className="flex items-center gap-1">
@@ -192,7 +256,7 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
         </Collapsible>
 
         {/* Personal Information */}
-        <Card>
+        <Card className="border-white/10 bg-card/80 shadow-lg shadow-black/10 backdrop-blur">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <User className="h-5 w-5 text-primary" />
@@ -224,11 +288,27 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="height">Height (cm)</Label>
+                <Input id="height" type="number" value={profile.height_cm} onChange={(e) => handleInputChange("height_cm", e.target.value)} min="1" max="250" />
+              </div>
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select value={profile.gender} onValueChange={(value) => handleInputChange("gender", value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UserProfilesGenderOptions.male}>Male</SelectItem>
+                    <SelectItem value={UserProfilesGenderOptions.female}>Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         {/* Nutrition Goals */}
-        <Card>
+        <Card className="border-white/10 bg-card/80 shadow-lg shadow-black/10 backdrop-blur">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
@@ -236,6 +316,37 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Goal</Label>
+                <Select value={profile.goal} onValueChange={(value) => handleInputChange("goal", value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UserProfilesGoalOptions.lose_weight}>Lose weight</SelectItem>
+                    <SelectItem value={UserProfilesGoalOptions.maintain}>Maintain</SelectItem>
+                    <SelectItem value={UserProfilesGoalOptions.gain_weight}>Gain weight</SelectItem>
+                    <SelectItem value={UserProfilesGoalOptions.gain_muscle}>Gain muscle</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Activity</Label>
+                <Select value={profile.activity_level} onValueChange={(value) => handleInputChange("activity_level", value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UserProfilesActivityLevelOptions.sedentary}>Sedentary</SelectItem>
+                    <SelectItem value={UserProfilesActivityLevelOptions.light}>Light</SelectItem>
+                    <SelectItem value={UserProfilesActivityLevelOptions.moderate}>Moderate</SelectItem>
+                    <SelectItem value={UserProfilesActivityLevelOptions.active}>Active</SelectItem>
+                    <SelectItem value={UserProfilesActivityLevelOptions["very active"]}>Very active</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button type="button" variant="outline" onClick={recalculateGoals} disabled={isSaving} className="w-full rounded-2xl">
+              <Calculator className="h-4 w-4 mr-2" />
+              Recalculate and save
+            </Button>
             <div className="space-y-2">
               <Label htmlFor="calories">Daily Calories Target</Label>
               <Input
@@ -286,25 +397,16 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
           </div>
         )}
 
-        {/* Save Button */}
-        <Button
-          onClick={handleSave}
-          className="w-full"
-          size="lg"
-          disabled={isSaving}
-        >
+        <p className="text-center text-xs text-muted-foreground">
           {isSaving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving...
-            </>
+            <span className="inline-flex items-center gap-2 text-primary">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Saving changes...
+            </span>
           ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
-            </>
+            "Changes save automatically."
           )}
-        </Button>
+        </p>
       </div>
     </div>
   );

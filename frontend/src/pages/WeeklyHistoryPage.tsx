@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Calendar, ThumbsUp, ThumbsDown, Minus, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, ThumbsUp, ThumbsDown, Minus, Info, Footprints, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { useAuth } from "../contexts/AuthContext";
 import pb from "../lib/pocketbase";
-import { UserGoals } from "../types/common";
-import { UserProfilesGoalOptions, MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
+import { ActivityLogModal } from "../components/activity-log-modal";
+import { ActivityCard } from "../components/activity-card";
+import { ActivityLog, UserGoals } from "../types/common";
+import { Collections, UserProfilesGoalOptions, MealTemplatesProcessingStatusOptions } from "../types/pocketbase-types";
 
 interface WeeklyHistoryPageProps {
   onBack: () => void;
@@ -27,6 +29,10 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
   const [weeklyData, setWeeklyData] = useState<DayData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userGoal, setUserGoal] = useState<UserProfilesGoalOptions>(UserProfilesGoalOptions.maintain);
+  const [activeTab, setActiveTab] = useState<"nutrition" | "activity">("activity");
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
+  const [showActivityModal, setShowActivityModal] = useState(false);
   const { user } = useAuth();
 
   // Get start of current week (Monday)
@@ -180,6 +186,48 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
     }
   }, [currentWeekStart, userGoals, calculateCalorieStatus, calculateProteinStatus, userGoal]);
 
+  const loadActivityLogs = useCallback(async () => {
+    if (!user) return;
+
+    setIsLoadingActivities(true);
+    try {
+      const records = await pb.collection(Collections.ActivityLogs).getList(1, 50, {
+        sort: "-created",
+        filter: pb.filter("user = {:user}", { user: user.id }),
+      });
+
+      setActivityLogs(records.items as unknown as ActivityLog[]);
+    } catch (error) {
+      console.error("Failed to load activity logs:", error);
+    } finally {
+      setIsLoadingActivities(false);
+    }
+  }, [user]);
+
+  const handleActivitySubmit = async (data: {
+    steps?: number;
+    durationMinutes?: number;
+    caloriesBurned: number;
+    activityType?: "walking" | "custom";
+  }) => {
+    if (!user) return;
+
+    try {
+      await pb.collection(Collections.ActivityLogs).create({
+        user: user.id,
+        activity_type: (data.activityType || "walking") as "walking",
+        steps: data.steps,
+        duration_minutes: data.durationMinutes,
+        calories_burned: data.caloriesBurned,
+      });
+
+      await loadActivityLogs();
+      setShowActivityModal(false);
+    } catch (error) {
+      console.error("Error logging activity:", error);
+    }
+  };
+
   useEffect(() => {
     loadUserGoal();
   }, [loadUserGoal]);
@@ -189,6 +237,10 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
       loadWeeklyData();
     }
   }, [loadWeeklyData, userGoals, userGoal]);
+
+  useEffect(() => {
+    loadActivityLogs();
+  }, [loadActivityLogs]);
 
   const navigateWeek = (direction: 'prev' | 'next') => {
     const newWeekStart = new Date(currentWeekStart);
@@ -260,13 +312,39 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
     return acc;
   }, { totalDaysLogged: 0, perfectDays: 0 });
 
+  const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+  const todayActivities = activityLogs.filter((activity) => new Date(activity.created) >= todayStart);
+  const todayCaloriesBurned = todayActivities.reduce((sum, activity) => sum + activity.calories_burned, 0);
+  const totalCaloriesBurned = activityLogs.reduce((sum, activity) => sum + activity.calories_burned, 0);
+
   return (
-    <div className="min-h-screen bg-background pb-28">
-      <div className="max-w-md mx-auto px-4 py-4 space-y-4">
+    <div className="relative min-h-screen overflow-hidden bg-background pb-28">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,hsl(var(--primary)/0.20),transparent_36%),radial-gradient(circle_at_15%_45%,hsl(var(--primary)/0.10),transparent_28%)]" />
+      <div className="relative max-w-md mx-auto px-4 py-4 space-y-4">
         <div className="pt-1">
-          <h1 className="text-xl font-semibold text-foreground">Weekly History</h1>
-          <p className="text-xs text-muted-foreground">Track your nutrition progress</p>
+          <h1 className="text-xl font-semibold text-foreground">History</h1>
+          <p className="text-xs text-muted-foreground">Nutrition and activity logs</p>
         </div>
+
+        <div className="grid grid-cols-2 rounded-2xl bg-muted/60 p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab("activity")}
+            className={`rounded-xl px-3 py-2 text-sm font-medium transition ${activeTab === "activity" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+          >
+            Activity
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("nutrition")}
+            className={`rounded-xl px-3 py-2 text-sm font-medium transition ${activeTab === "nutrition" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+          >
+            Nutrition
+          </button>
+        </div>
+
+        {activeTab === "nutrition" && (
+          <>
         {/* Week Navigation */}
         <Card>
           <CardHeader className="pb-3">
@@ -385,9 +463,78 @@ export default function WeeklyHistoryPage({ onBack, userGoals }: WeeklyHistoryPa
             ))}
           </div>
         )}
+          </>
+        )}
 
+        {activeTab === "activity" && (
+          <div className="space-y-4">
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Today burned</p>
+                    <p className="text-2xl font-bold text-foreground">{todayCaloriesBurned} kcal</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary">
+                    <Footprints className="h-6 w-6" />
+                  </div>
+                </div>
+                <Button onClick={() => setShowActivityModal(true)} className="w-full h-12">
+                  <Footprints className="h-4 w-4 mr-2" />
+                  Log walking activity
+                </Button>
+              </CardContent>
+            </Card>
 
+            <div className="grid grid-cols-2 gap-3">
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Recent logs</p>
+                  <p className="text-xl font-semibold">{activityLogs.length}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="text-xs text-muted-foreground">Total burned</p>
+                  <p className="text-xl font-semibold">{totalCaloriesBurned}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {isLoadingActivities ? (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-primary" />
+                  <p className="text-sm text-muted-foreground">Loading activities...</p>
+                </CardContent>
+              </Card>
+            ) : activityLogs.length === 0 ? (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <Footprints className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                  <p className="font-medium">No activities yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Log walks here to track calories burned.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {activityLogs.map((activity) => (
+                  <ActivityCard key={activity.id} activity={activity} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {userGoals && (
+        <ActivityLogModal
+          open={showActivityModal}
+          onClose={() => setShowActivityModal(false)}
+          onSubmit={handleActivitySubmit}
+          userWeightKg={userGoals.weight}
+        />
+      )}
     </div>
   );
 }
