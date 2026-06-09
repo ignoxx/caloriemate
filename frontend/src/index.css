@@ -90,8 +90,20 @@
   * {
     @apply border-border;
   }
+  html {
+    background:
+      radial-gradient(circle at 50% -12%, hsl(var(--primary) / 0.24), transparent 34rem),
+      radial-gradient(circle at 12% 35%, hsl(var(--primary) / 0.10), transparent 26rem),
+      hsl(var(--background));
+  }
+
   body {
     @apply bg-background text-foreground;
+    background:
+      radial-gradient(circle at 50% -12%, hsl(var(--primary) / 0.24), transparent 34rem),
+      radial-gradient(circle at 12% 35%, hsl(var(--primary) / 0.10), transparent 26rem),
+      hsl(var(--background));
+    background-attachment: fixed;
   }
 
   /* Remove spinner buttons from number inputs */
