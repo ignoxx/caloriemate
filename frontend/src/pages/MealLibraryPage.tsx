@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, BookOpen, Loader2, Plus } from "lucide-react";
+import { BookOpen, Loader2, Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -76,20 +76,19 @@ export default function MealLibraryPage({ onBack, onMealLogged }: MealLibraryPag
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="sticky top-0 z-10 bg-background border-b border-border">
-        <div className="flex items-center gap-4 p-4">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold">My Meals</h1>
+    <div className="relative min-h-screen overflow-hidden bg-background pb-28">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,hsl(var(--primary)/0.20),transparent_36%),radial-gradient(circle_at_15%_45%,hsl(var(--primary)/0.10),transparent_28%)]" />
+      <div className="relative p-4 space-y-4">
+        <div className="flex items-end justify-between pt-1">
+          <div>
+            <div className="flex items-center gap-2 text-primary">
+              <BookOpen className="h-5 w-5" />
+              <p className="text-sm font-semibold">Library</p>
+            </div>
+            <h1 className="mt-1 text-3xl font-black tracking-tight">My Meals</h1>
           </div>
+          <div className="rounded-full bg-primary/15 px-3 py-1 text-xs font-medium text-primary">{meals.length} saved</div>
         </div>
-      </div>
-
-      <div className="p-4">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
@@ -109,11 +108,11 @@ export default function MealLibraryPage({ onBack, onMealLogged }: MealLibraryPag
               const isLogging = loggingMealId === meal.id;
 
               return (
-                <Card key={meal.id} className="overflow-hidden">
+                <Card key={meal.id} className="overflow-hidden border-white/10 bg-card/80 shadow-lg shadow-black/10 backdrop-blur">
                   <CardContent className="p-4">
                     <div className="flex gap-3 mb-3">
                       {imageUrl && (
-                        <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                        <div className="w-24 h-24 rounded-2xl overflow-hidden bg-muted flex-shrink-0 shadow-inner">
                           <img
                             src={imageUrl}
                             alt={meal.name}
@@ -123,15 +122,15 @@ export default function MealLibraryPage({ onBack, onMealLogged }: MealLibraryPag
                       )}
 
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-sm text-foreground mb-2 line-clamp-2">
+                        <h3 className="font-bold text-base leading-snug text-foreground mb-2 line-clamp-2">
                           {meal.name}
                         </h3>
 
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs rounded-full">
                             {meal.total_calories} kcal
                           </Badge>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs rounded-full">
                             {meal.total_protein_g}g protein
                           </Badge>
                         </div>
@@ -148,7 +147,7 @@ export default function MealLibraryPage({ onBack, onMealLogged }: MealLibraryPag
                       onClick={() => handleLogMeal(meal.id)}
                       disabled={isLogging}
                       size="sm"
-                      className="w-full"
+                      className="w-full h-11 rounded-2xl"
                     >
                       {isLogging ? (
                         <>

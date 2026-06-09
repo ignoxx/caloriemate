@@ -36,31 +36,73 @@ func New() *Client {
 	}
 }
 
-func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (types.MealTemplate, error) {
-	ctx := context.Background()
-
+func encodeImage(image io.ReadSeeker) (string, error) {
 	if _, err := image.Seek(0, io.SeekStart); err != nil {
-		return types.MealTemplate{}, errors.New("image seek to start failed with: " + err.Error())
+		return "", errors.New("image seek to start failed with: " + err.Error())
 	}
 
 	var imgBuf bytes.Buffer
-	var promptBuf bytes.Buffer
-
 	enc := base64.NewEncoder(base64.StdEncoding, &imgBuf)
-
 	if _, err := io.Copy(enc, image); err != nil {
-		return types.MealTemplate{}, errors.New("image copy to buffer failed with: " + err.Error())
+		return "", errors.New("image copy to buffer failed with: " + err.Error())
 	}
 	if err := enc.Close(); err != nil {
-		return types.MealTemplate{}, errors.New("image base64 encode failed with: " + err.Error())
+		return "", errors.New("image base64 encode failed with: " + err.Error())
 	}
 
+	return imgBuf.String(), nil
+}
+
+func (c *Client) EstimateNutritions(image io.ReadSeeker, imageContext string, contextImages []ai.ContextImage, userContext string) (types.MealTemplate, error) {
+	ctx := context.Background()
+
+	primaryImage, err := encodeImage(image)
+	if err != nil {
+		return types.MealTemplate{}, err
+	}
+
+	var promptBuf bytes.Buffer
+	type promptContextImage struct {
+		Index int
+		Note  string
+	}
 	type input struct {
-		UserContext string
+		ImageContext  string
+		ContextImages []promptContextImage
+		UserContext   string
+	}
+	promptImages := make([]promptContextImage, 0, len(contextImages))
+	for i, contextImage := range contextImages {
+		promptImages = append(promptImages, promptContextImage{Index: i + 1, Note: contextImage.Note})
 	}
 
-	if err := ai.STAGE_SINGLE_PROMPT.Execute(&promptBuf, input{UserContext: userContext}); err != nil {
+	if err := ai.STAGE_SINGLE_PROMPT.Execute(&promptBuf, input{ImageContext: imageContext, ContextImages: promptImages, UserContext: userContext}); err != nil {
 		return types.MealTemplate{}, errors.New("single stage prompt execute failed with: " + err.Error())
+	}
+
+	parts := []openrouter.ChatMessagePart{
+		{
+			Type: openrouter.ChatMessagePartTypeText,
+			Text: promptBuf.String(),
+		},
+		{
+			Type: openrouter.ChatMessagePartTypeImageURL,
+			ImageURL: &openrouter.ChatMessageImageURL{
+				URL: "data:image/jpeg;base64," + primaryImage,
+			},
+		},
+	}
+	for _, contextImage := range contextImages {
+		encoded, err := encodeImage(contextImage.Image)
+		if err != nil {
+			return types.MealTemplate{}, err
+		}
+		parts = append(parts, openrouter.ChatMessagePart{
+			Type: openrouter.ChatMessagePartTypeImageURL,
+			ImageURL: &openrouter.ChatMessageImageURL{
+				URL: "data:image/jpeg;base64," + encoded,
+			},
+		})
 	}
 
 	resp, err := c.Client.CreateChatCompletion(ctx, openrouter.ChatCompletionRequest{
@@ -76,18 +118,7 @@ func (c *Client) EstimateNutritions(image io.ReadSeeker, userContext string) (ty
 			{
 				Role: "user",
 				Content: openrouter.Content{
-					Multi: []openrouter.ChatMessagePart{
-						{
-							Type: openrouter.ChatMessagePartTypeText,
-							Text: promptBuf.String(),
-						},
-						{
-							Type: openrouter.ChatMessagePartTypeImageURL,
-							ImageURL: &openrouter.ChatMessageImageURL{
-								URL: "data:image/jpeg;base64," + imgBuf.String(),
-							},
-						},
-					},
+					Multi: parts,
 				},
 			},
 		},
